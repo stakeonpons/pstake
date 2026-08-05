@@ -66,8 +66,8 @@ export default function Docs() {
           <p>
             Tickers match the underlying exactly, with no suffix: NVIDIA is <code>NVDA</code>,
             Tesla is <code>TSLA</code>, Apple is <code>AAPL</code>. Not all of them are listed
-            equities: <code>SPY</code> is an index fund, and <code>SPCX</code> tracks SpaceX, which
-            is private.
+            equities: <code>SPY</code> is an index fund, <code>SPCX</code> tracks SpaceX, which is
+            private, and <code>USDG</code> is a dollar stablecoin rather than a share.
           </p>
           <p>
             Because a stock is an ordinary ERC-20, once claimed you can hold it, swap it on

@@ -4,6 +4,10 @@ pragma solidity ^0.8.30;
 import {Script, console} from "forge-std/Script.sol";
 import {PStakeStaking} from "../src/PStakeStaking.sol";
 
+interface IERC20Decimals {
+    function decimals() external view returns (uint8);
+}
+
 /**
  * Deploys the staking contract on Robinhood Chain and puts it into a usable state in one batch.
  *
@@ -45,29 +49,42 @@ contract Deploy is Script {
     /**
      * The pStake reward track: stake a pStock, earn that same pStock.
      *
-     * ⭐ These seven are not a selection. They are exactly the tokens `approvedPairTokens()` on the
-     * V2 factory returns true for, out of all 202 Robinhood tokenized stocks — so they are the only
-     * assets a pStake token can be paired against, and therefore the only assets fees can arrive
-     * in. Re-derive rather than edit by hand if Pons approves more; the check is one multicall.
+     * ⭐ Not a selection. Every entry is verified against `approvedPairTokens()` on the V2 factory,
+     * so these are the assets a token can be paired against and therefore the assets fees arrive
+     * in. Keep in step with `STOCKS` in `src/lib/stocks.ts`.
+     *
+     * ⚠⚠ Deriving this by scanning "Robinhood tokenized stocks" MISSES entries — that is how USDG
+     * was absent at first. It is a stablecoin, so it was never in the candidate set, even though
+     * the factory approves it. The factory is the authority, not any token-list query.
+     *
+     * ⚠ Native ETH is also pairable on Pons and is deliberately absent: a token paired against it
+     * pays stakers in ETH rather than in a stock, and pools here hold ERC-20s.
      */
-    address[7] STOCKS = [
+    address[8] STOCKS = [
         0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC, // NVDA
         0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9, // AAPL
         0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa, // SPCX
         0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3, // GOOGL
         0x322F0929c4625eD5bAd873c95208D54E1c003b2d, // TSLA
         0x117cc2133c37B721F49dE2A7a74833232B3B4C0C, // SPY
-        0x1b0E319c6A659F002271B69dB8A7df2F911c153E // GME
+        0x1b0E319c6A659F002271B69dB8A7df2F911c153E, // GME
+        0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 // USDG, 6 decimals
     ];
 
     /**
-     * The floor on a single position, in stake-token units.
+     * The floor on a single position, in each asset's OWN units.
      *
      * ⚠⚠ Not cosmetic. `harvest` is permissionless and rewards are paid on arrival, so without a
      * floor one wei staked into an empty pool immediately before a harvest collects the whole
-     * claimable balance. All seven pStocks are 18 decimals, so this is one whole share.
+     * claimable balance.
+     *
+     * ⚠⚠ **Read per asset, because they do not share decimals.** The seven equities are 18, USDG
+     * is 6. A single `1e18` constant would set USDG's floor to a TRILLION USDG and make its pool
+     * unusable, so this reads `decimals()` rather than assuming.
      */
-    uint256 constant MIN_STAKE = 1e18;
+    function minStakeFor(address token) internal view returns (uint256) {
+        return 10 ** IERC20Decimals(token).decimals();
+    }
 
     function run() external returns (PStakeStaking staking) {
         vm.startBroadcast();
@@ -83,7 +100,7 @@ contract Deploy is Script {
         console.log("PStakeStaking:", address(staking));
 
         for (uint256 i; i < STOCKS.length; ++i) {
-            uint256 id = staking.createPool(STOCKS[i], STOCKS[i], MIN_STAKE);
+            uint256 id = staking.createPool(STOCKS[i], STOCKS[i], minStakeFor(STOCKS[i]));
             console.log("pool", id, STOCKS[i]);
 
             // One pool per stock today, so the declaration is exact: everything harvested in this

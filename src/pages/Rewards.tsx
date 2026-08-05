@@ -41,7 +41,7 @@ export default function Rewards() {
       fetchQuotes().catch(() => ({}) as Record<string, Quote>),
     ])
     setQuotes(q)
-    // Only rows with something in them. A table of seven zeroes is noise, not information.
+    // Only rows with something in them. A table of zeroes is noise, not information.
     setRows(claimable ? claimable.rows.filter((r) => r.amount > 0n) : [])
   }, [address])
 
