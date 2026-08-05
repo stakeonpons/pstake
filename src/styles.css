@@ -1,38 +1,58 @@
 /* ============================================================
-   bStake — Binance-native dark theme
-   Palette is Binance's own: #F0B90B / #FCD535 on #0B0E11.
+   pStake — Pons dark theme
+
+   ⚠ Every value below is READ FROM PONS, not eyeballed: their design tokens, off
+   ponsfamily.com's stylesheet. The accent is their `--accent` #d4fc50, which is itself Robinhood
+   Chain's lime — so the launchpad and the chain agree and the site sits inside both.
+
+   ⚠⚠ The greys were the reason this still looked like Binance. The accent had already moved to
+   green at the migration, but --bg through --line were Binance's exact dark palette (#0b0e11,
+   #181a20, #2b3139) and neutrals are most of what a page actually shows. They are Pons's flat
+   greys now: #0d0d0d page, #161616 surface, #1c1c1c elevated, #1f1f1f panel.
+
+   Borders and secondary text are white at low alpha rather than fixed slate hexes, which is how
+   Pons does it — one value works on every surface instead of one per surface.
+
+   Most accents trace to the four --accent* variables, so the bulk of the identity moves by editing
+   them. ⚠ Not all of it: gradients, glows and scrim overlays need a literal rgba to carry an alpha,
+   and the on-accent text colour is a literal #111 (Pons's own --accent-contrast). Those are spelt
+   out in place — grep the file for a raw hex before assuming this block is the only lever.
    ============================================================ */
 
 :root {
-  --yellow: #f0b90b;
-  --yellow-hi: #fcd535;
-  --yellow-dim: rgba(240, 185, 11, 0.12);
-  --yellow-line: rgba(240, 185, 11, 0.28);
+  --accent: #d4fc50;
+  --accent-hi: #e2ff66;
+  --accent-dim: rgba(212, 252, 80, 0.12);
+  --accent-line: rgba(212, 252, 80, 0.3);
 
-  --bg: #0b0e11;
-  --bg-2: #12161c;
-  --surface: #181a20;
-  --surface-2: #1e2329;
-  --surface-3: #262b31;
-  --line: #2b3139;
-  --line-soft: #21262d;
+  --bg: #0d0d0d;
+  --bg-2: #111111;
+  --surface: #161616;
+  --surface-2: #1c1c1c;
+  --surface-3: #1f1f1f;
+  --line: rgba(242, 242, 242, 0.12);
+  --line-soft: rgba(242, 242, 242, 0.07);
 
-  --text: #eaecef;
-  --text-2: #b7bdc6;
-  --muted: #848e9c;
-  --faint: #5e6673;
+  --text: #f2f2f2;
+  --text-2: rgba(242, 242, 242, 0.58);
+  --muted: rgba(242, 242, 242, 0.4);
+  --faint: rgba(242, 242, 242, 0.28);
 
-  --up: #0ecb81;
-  --down: #f6465d;
+  /* Pons's own success and danger. ⚠ A lime accent leaves room for a plain green 'up' that the
+     yellow-green accent never reads as — the two are far enough apart that a rising number looks
+     like a direction rather than a brand flourish. */
+  --up: #30d158;
+  --down: #ff453a;
 
-  --radius: 12px;
-  --radius-lg: 18px;
+  /* Pons rounds hard: 24px cards, 20px panels, 999px pills. */
+  --radius: 16px;
+  --radius-lg: 22px;
   --maxw: 1200px;
 
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
-  --shadow-yellow: 0 8px 30px rgba(240, 185, 11, 0.18);
+  --shadow-accent: 0 8px 30px rgba(212, 252, 80, 0.18);
 
-  --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -111,7 +131,7 @@ table {
   color: var(--text-2);
 }
 .yellow {
-  color: var(--yellow);
+  color: var(--accent);
 }
 .nowrap {
   white-space: nowrap;
@@ -147,12 +167,12 @@ table {
   margin-bottom: 32px;
 }
 
-/* Page titles carry the brand yellow — the same `--yellow` as the header wordmark, not the brighter
-   `--yellow-hi`, so the two read as one colour rather than two. Covers all six inner pages in one
+/* Page titles carry the brand yellow — the same `--accent` as the header wordmark, not the brighter
+   `--accent-hi`, so the two read as one colour rather than two. Covers all six inner pages in one
    rule; the home page uses a hero rather than `.page-head`, so it is untouched. */
 .page-head h1 {
   font-size: 40px;
-  color: var(--yellow);
+  color: var(--accent);
 }
 
 .page-head p {
@@ -209,8 +229,8 @@ table {
 /* ---------- demo strip ---------- */
 
 .demo-strip {
-  background: linear-gradient(90deg, rgba(240, 185, 11, 0.14), rgba(240, 185, 11, 0.04));
-  border-bottom: 1px solid var(--yellow-line);
+  background: linear-gradient(90deg, rgba(212, 252, 80, 0.14), rgba(212, 252, 80, 0.04));
+  border-bottom: 1px solid var(--accent-line);
   font-size: 12.5px;
   color: var(--text-2);
 }
@@ -224,7 +244,7 @@ table {
 }
 
 .demo-strip strong {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
   font-weight: 600;
 }
 
@@ -248,7 +268,7 @@ table {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(11, 14, 17, 0.86);
+  background: rgba(13, 13, 13, 0.86);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line-soft);
 }
@@ -316,8 +336,8 @@ table {
 }
 
 .nav a.on {
-  color: var(--yellow-hi);
-  background: var(--yellow-dim);
+  color: var(--accent-hi);
+  background: var(--accent-dim);
 }
 
 .header-right {
@@ -367,8 +387,8 @@ table {
 }
 
 .mobile-nav a.on {
-  color: var(--yellow-hi);
-  background: var(--yellow-dim);
+  color: var(--accent-hi);
+  background: var(--accent-dim);
 }
 
 .mobile-nav.open {
@@ -396,13 +416,13 @@ table {
 }
 
 .btn-primary {
-  background: var(--yellow);
-  color: #14161a;
+  background: var(--accent);
+  color: #111111;
 }
 
 .btn-primary:hover {
-  background: var(--yellow-hi);
-  box-shadow: var(--shadow-yellow);
+  background: var(--accent-hi);
+  box-shadow: var(--shadow-accent);
 }
 
 .btn-ghost {
@@ -418,12 +438,12 @@ table {
 
 .btn-outline {
   background: transparent;
-  color: var(--yellow-hi);
-  border-color: var(--yellow-line);
+  color: var(--accent-hi);
+  border-color: var(--accent-line);
 }
 
 .btn-outline:hover {
-  background: var(--yellow-dim);
+  background: var(--accent-dim);
 }
 
 .btn-lg {
@@ -473,7 +493,7 @@ table {
 }
 
 .card-hoverable:hover {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
   transform: translateY(-2px);
 }
 
@@ -519,7 +539,7 @@ table {
   transform: translateX(-50%);
   width: 900px;
   height: 620px;
-  background: radial-gradient(closest-side, rgba(240, 185, 11, 0.2), transparent 72%);
+  background: radial-gradient(closest-side, rgba(212, 252, 80, 0.2), transparent 72%);
   pointer-events: none;
 }
 
@@ -547,17 +567,17 @@ table {
   align-items: center;
   gap: 8px;
   padding: 6px 14px 6px 8px;
-  border: 1px solid var(--yellow-line);
-  background: var(--yellow-dim);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-dim);
   border-radius: 999px;
   font-size: 13px;
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
   font-weight: 500;
 }
 
 .eyebrow .tag {
-  background: var(--yellow);
-  color: #14161a;
+  background: var(--accent);
+  color: #111111;
   border-radius: 999px;
   padding: 1px 8px;
   font-size: 11px;
@@ -577,8 +597,8 @@ table {
 }
 
 .ca-pill:hover {
-  background: rgba(240, 185, 11, 0.2);
-  border-color: var(--yellow);
+  background: rgba(212, 252, 80, 0.2);
+  border-color: var(--accent);
 }
 
 .ca-pill-pending {
@@ -773,14 +793,14 @@ table {
   left: 24px;
   right: 24px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--yellow-line), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
 }
 
 .step-n {
   font-family: var(--mono);
   font-size: 13px;
   font-weight: 600;
-  color: var(--yellow);
+  color: var(--accent);
   letter-spacing: 0.1em;
 }
 
@@ -817,12 +837,12 @@ table {
   width: 40px;
   height: 40px;
   border-radius: 11px;
-  background: var(--yellow-dim);
-  border: 1px solid var(--yellow-line);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
   margin-bottom: 4px;
 }
 
@@ -845,7 +865,7 @@ table {
 .info-split h2 {
   font-size: 19px;
   padding-left: 13px;
-  border-left: 3px solid var(--yellow);
+  border-left: 3px solid var(--accent);
   line-height: 1.25;
 }
 
@@ -896,7 +916,7 @@ table {
 }
 
 .pair-arrow {
-  color: var(--yellow);
+  color: var(--accent);
   font-size: 17px;
   line-height: 1;
 }
@@ -941,8 +961,8 @@ table {
 
 .mult.on,
 .mult.on:hover {
-  border-color: var(--yellow);
-  background: linear-gradient(180deg, var(--yellow-dim), transparent);
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-dim), transparent);
   transform: none;
 }
 
@@ -962,7 +982,7 @@ table {
 }
 
 .mult.on .m {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 /* Duration-only tile: the number leads, the unit sits under it. Reward multipliers are
@@ -1046,7 +1066,7 @@ table tbody tr:hover {
 }
 
 .stock-link:hover .tk-name {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 .stock-link:hover .tk-name svg {
@@ -1054,7 +1074,7 @@ table tbody tr:hover {
 }
 
 .stock-link:hover .tk-glyph {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
 }
 
 .tk-glyph {
@@ -1096,22 +1116,22 @@ table tbody tr:hover {
 }
 
 .badge-stock {
-  border-color: var(--yellow-line);
-  background: var(--yellow-dim);
-  color: var(--yellow-hi);
+  border-color: var(--accent-line);
+  background: var(--accent-dim);
+  color: var(--accent-hi);
   font-family: var(--mono);
   letter-spacing: 0.02em;
 }
 
 .badge-up {
-  border-color: rgba(14, 203, 129, 0.32);
-  background: rgba(14, 203, 129, 0.1);
+  border-color: rgba(48, 209, 88, 0.32);
+  background: rgba(48, 209, 88, 0.1);
   color: var(--up);
 }
 
 .badge-live {
-  border-color: rgba(14, 203, 129, 0.32);
-  background: rgba(14, 203, 129, 0.1);
+  border-color: rgba(48, 209, 88, 0.32);
+  background: rgba(48, 209, 88, 0.1);
   color: var(--up);
 }
 
@@ -1120,7 +1140,7 @@ table tbody tr:hover {
   height: 6px;
   border-radius: 50%;
   background: var(--up);
-  box-shadow: 0 0 0 3px rgba(14, 203, 129, 0.18);
+  box-shadow: 0 0 0 3px rgba(48, 209, 88, 0.18);
 }
 
 .badge-muted {
@@ -1168,7 +1188,7 @@ table tbody tr:hover {
 }
 
 .search input:focus {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
 }
 
 .select {
@@ -1182,7 +1202,7 @@ table tbody tr:hover {
 }
 
 .select:focus {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
 }
 
 .chips {
@@ -1208,9 +1228,9 @@ table tbody tr:hover {
 }
 
 .chip.on {
-  background: var(--yellow-dim);
-  border-color: var(--yellow-line);
-  color: var(--yellow-hi);
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+  color: var(--accent-hi);
 }
 
 /* ---------- empty ---------- */
@@ -1252,8 +1272,8 @@ table tbody tr:hover {
   padding: 56px 40px;
   text-align: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #f0b90b, #fcd535 55%, #e0a800);
-  color: #14161a;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hi) 55%, #00a004);
+  color: #111111;
 }
 
 .cta::after {
@@ -1278,14 +1298,14 @@ table tbody tr:hover {
   position: relative;
   margin: 14px auto 0;
   max-width: 520px;
-  color: rgba(20, 22, 26, 0.78);
+  color: rgba(17, 17, 17, 0.78);
   font-size: 16px;
 }
 
 .cta .btn-dark {
   position: relative;
   margin-top: 28px;
-  background: #14161a;
+  background: #111111;
   color: #fff;
 }
 
@@ -1331,7 +1351,7 @@ table tbody tr:hover {
 }
 
 .amount-input:focus-within {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
 }
 
 .amount-input input {
@@ -1352,9 +1372,9 @@ table tbody tr:hover {
 }
 
 .max-btn {
-  background: var(--yellow-dim);
-  border: 1px solid var(--yellow-line);
-  color: var(--yellow-hi);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-hi);
   border-radius: 8px;
   padding: 8px 14px;
   font-size: 13px;
@@ -1362,7 +1382,7 @@ table tbody tr:hover {
 }
 
 .max-btn:hover {
-  background: rgba(240, 185, 11, 0.2);
+  background: rgba(212, 252, 80, 0.2);
 }
 
 .pool-select {
@@ -1449,7 +1469,7 @@ table tbody tr:hover {
 
 .summary-row.hero-row .v {
   font-size: 19px;
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 /* Preview-mode banner. Yellow-tinted rather than surface-coloured so it reads as an overlay on the
@@ -1462,15 +1482,15 @@ table tbody tr:hover {
   padding: 12px 16px;
   margin-bottom: 20px;
   border-radius: 10px;
-  background: var(--yellow-dim);
-  border: 1px solid var(--yellow-line);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
   font-size: 13px;
   line-height: 1.55;
   color: var(--text-2);
 }
 
 .preview-banner b {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
   letter-spacing: 0.02em;
 }
 
@@ -1495,7 +1515,7 @@ table tbody tr:hover {
 .notice svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--yellow);
+  color: var(--accent);
 }
 
 /* ---------- tabs ---------- */
@@ -1527,9 +1547,9 @@ table tbody tr:hover {
 }
 
 .tab.on {
-  background: var(--yellow-dim);
-  color: var(--yellow-hi);
-  box-shadow: inset 0 0 0 1px var(--yellow-line);
+  background: var(--accent-dim);
+  color: var(--accent-hi);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 
 /* ---------- form controls ---------- */
@@ -1567,7 +1587,7 @@ table tbody tr:hover {
 }
 
 .textarea:focus {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
 }
 
 .image-drop {
@@ -1586,8 +1606,8 @@ table tbody tr:hover {
 }
 
 .image-drop:hover {
-  border-color: var(--yellow-line);
-  color: var(--yellow-hi);
+  border-color: var(--accent-line);
+  color: var(--accent-hi);
 }
 
 .image-drop img {
@@ -1630,8 +1650,8 @@ table tbody tr:hover {
 }
 
 .quote-opt.on {
-  border-color: var(--yellow-line);
-  background: linear-gradient(180deg, var(--yellow-dim), transparent);
+  border-color: var(--accent-line);
+  background: linear-gradient(180deg, var(--accent-dim), transparent);
 }
 
 .quote-opt .qt {
@@ -1641,7 +1661,7 @@ table tbody tr:hover {
 }
 
 .quote-opt.on .qt {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 .quote-opt .qc {
@@ -1690,18 +1710,18 @@ table tbody tr:hover {
 }
 
 .alert-block {
-  background: var(--yellow-dim);
-  border: 1px solid var(--yellow-line);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
 }
 
 .alert-block svg,
 .alert-block b {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 .alert-error {
-  background: rgba(246, 70, 93, 0.1);
-  border: 1px solid rgba(246, 70, 93, 0.32);
+  background: rgba(255, 69, 58, 0.1);
+  border: 1px solid rgba(255, 69, 58, 0.32);
 }
 
 .alert-error svg,
@@ -1819,7 +1839,7 @@ table tbody tr:hover {
 }
 
 .wallet-opt:hover:not(:disabled) {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
   background: var(--surface-2);
 }
 
@@ -1842,7 +1862,7 @@ table tbody tr:hover {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  color: var(--yellow);
+  color: var(--accent);
   border: 1px solid var(--line);
 }
 
@@ -1884,15 +1904,15 @@ table tbody tr:hover {
 }
 
 .chain-pill-wrong {
-  border-color: rgba(246, 70, 93, 0.4);
-  background: rgba(246, 70, 93, 0.1);
+  border-color: rgba(255, 69, 58, 0.4);
+  background: rgba(255, 69, 58, 0.1);
   color: var(--down);
   font-weight: 600;
   cursor: pointer;
 }
 
 .chain-pill-wrong:hover {
-  background: rgba(246, 70, 93, 0.18);
+  background: rgba(255, 69, 58, 0.18);
 }
 
 /* ---------- stakeable holdings ---------- */
@@ -1922,8 +1942,8 @@ table tbody tr:hover {
 }
 
 .holding.on {
-  border-color: var(--yellow-line);
-  background: linear-gradient(180deg, var(--yellow-dim), transparent);
+  border-color: var(--accent-line);
+  background: linear-gradient(180deg, var(--accent-dim), transparent);
 }
 
 .holding-name {
@@ -1975,19 +1995,19 @@ table tbody tr:hover {
   margin-top: 12px;
   padding: 12px 16px;
   border-radius: 10px;
-  background: var(--yellow-dim);
-  border: 1px solid var(--yellow-line);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
   font-size: 13.5px;
   color: var(--text-2);
 }
 
 .buy-value b {
   font-size: 17px;
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 /* The coin keeps its own round edge rather than inheriting the pill's. */
-/* The BNB Chain cube mark. No border-radius: the old asset was a filled circular disc that needed
+/* The chain mark. No border-radius: the old asset was a filled circular disc that needed
    clipping, this one is transparent line-art whose corners would be cut off by one. */
 .chain-icon {
   display: block;
@@ -2055,14 +2075,14 @@ table tbody tr:hover {
    than the destructive one. */
 .account-drop button:hover {
   background: var(--surface-2);
-  color: var(--yellow);
+  color: var(--accent);
 }
 
 /* ---------- add token ---------- */
 
 .found-card {
-  border: 1px solid var(--yellow-line);
-  background: var(--yellow-dim);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-dim);
   border-radius: 13px;
   padding: 16px;
   margin-top: 4px;
@@ -2072,7 +2092,7 @@ table tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 /* ---------- spinner ---------- */
@@ -2082,7 +2102,7 @@ table tbody tr:hover {
   height: 30px;
   border-radius: 50%;
   border: 3px solid var(--surface-3);
-  border-top-color: var(--yellow);
+  border-top-color: var(--accent);
   margin: 0 auto;
   animation: spin 0.8s linear infinite;
 }
@@ -2105,8 +2125,8 @@ table tbody tr:hover {
   position: relative;
   border-radius: 22px;
   padding: 34px;
-  background: linear-gradient(135deg, rgba(240, 185, 11, 0.16), rgba(240, 185, 11, 0.03));
-  border: 1px solid var(--yellow-line);
+  background: linear-gradient(135deg, rgba(212, 252, 80, 0.16), rgba(212, 252, 80, 0.03));
+  border: 1px solid var(--accent-line);
   overflow: hidden;
 }
 
@@ -2114,7 +2134,7 @@ table tbody tr:hover {
   font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  color: var(--yellow);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -2178,11 +2198,11 @@ table tbody tr:hover {
 }
 
 .faq-q:hover {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 .faq-q .pm {
-  color: var(--yellow);
+  color: var(--accent);
   flex-shrink: 0;
   transition: transform 0.18s;
 }
@@ -2275,12 +2295,12 @@ table tbody tr:hover {
   border-radius: 5px;
   padding: 1px 6px;
   font-size: 13px;
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 .doc a {
-  color: var(--yellow-hi);
-  border-bottom: 1px solid var(--yellow-line);
+  color: var(--accent-hi);
+  border-bottom: 1px solid var(--accent-line);
 }
 
 .doc-layout {
@@ -2356,7 +2376,7 @@ table tbody tr:hover {
 }
 
 .footer-col a:hover {
-  color: var(--yellow-hi);
+  color: var(--accent-hi);
 }
 
 .footer-bottom {
@@ -2497,7 +2517,7 @@ table tbody tr:hover {
 }
 
 .tcard:hover {
-  border-color: var(--yellow-line);
+  border-color: var(--accent-line);
   transform: translateY(-2px);
 }
 
@@ -2524,7 +2544,7 @@ table tbody tr:hover {
   font-size: 34px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--yellow);
+  color: var(--accent);
   opacity: 0.55;
 }
 
@@ -2545,7 +2565,7 @@ table tbody tr:hover {
   font-size: 10.5px;
   padding: 3px 7px;
   border-radius: 6px;
-  background: rgba(11, 14, 17, 0.82);
+  background: rgba(13, 13, 13, 0.82);
   backdrop-filter: blur(6px);
   color: var(--text-2);
   white-space: nowrap;
@@ -2553,7 +2573,7 @@ table tbody tr:hover {
 
 .tcard-tag-hi {
   color: var(--bg);
-  background: var(--yellow);
+  background: var(--accent);
 }
 
 /* The reward ticker sits on top of arbitrary artwork, so it gets an opaque plate of its own —
@@ -2564,7 +2584,7 @@ table tbody tr:hover {
   bottom: 10px;
   right: 10px;
   border-radius: 7px;
-  background: rgba(11, 14, 17, 0.82);
+  background: rgba(13, 13, 13, 0.82);
   backdrop-filter: blur(6px);
   padding: 2px;
 }
@@ -2684,7 +2704,7 @@ table tbody tr:hover {
 
 .tcard-links a:hover,
 .tcard-links button:hover {
-  color: var(--yellow);
+  color: var(--accent);
 }
 
 @media (max-width: 520px) {
@@ -2716,7 +2736,7 @@ table tbody tr:hover {
 
 .toast {
   background: var(--surface-2);
-  border: 1px solid var(--yellow-line);
+  border: 1px solid var(--accent-line);
   color: var(--text);
   font-size: 13.5px;
   font-weight: 500;
@@ -2746,17 +2766,17 @@ table tbody tr:hover {
   }
 }
 
-/* ---------- the bStake token's own card ---------- */
+/* ---------- the pStake token's own card ---------- */
 
 /* Outlined rather than recoloured: the grid stays visually uniform, and the ring plus the glow read
    as "this one is ours" without turning the card into a different component. */
 .tcard-pinned {
-  border-color: var(--yellow);
-  box-shadow: 0 0 0 1px var(--yellow-line), var(--shadow-yellow);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-accent);
 }
 
 .tcard-pinned:hover {
-  border-color: var(--yellow-hi);
+  border-color: var(--accent-hi);
 }
 
 /* The whole card copies the contract address, so it has to look pressable. */
@@ -2765,7 +2785,7 @@ table tbody tr:hover {
 }
 
 .tcard:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -2803,7 +2823,7 @@ table tbody tr:hover {
 }
 
 .back-link:hover {
-  color: var(--yellow);
+  color: var(--accent);
 }
 
 .td-head {
@@ -2819,8 +2839,8 @@ table tbody tr:hover {
 
 /* The platform's own token gets the same ring its card has, so the two read as one thing. */
 .td-head-pinned {
-  border-color: var(--yellow);
-  box-shadow: 0 0 0 1px var(--yellow-line), var(--shadow-yellow);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-accent);
 }
 
 .td-art {
@@ -2832,7 +2852,7 @@ table tbody tr:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--yellow);
+  color: var(--accent);
   font-size: 26px;
   font-weight: 700;
   opacity: 0.95;
@@ -2854,7 +2874,7 @@ table tbody tr:hover {
 
 .td-title h1 {
   font-size: 30px;
-  color: var(--yellow);
+  color: var(--accent);
 }
 
 .td-sub {
@@ -2902,7 +2922,7 @@ table tbody tr:hover {
 
 .td-links a:hover,
 .td-ca:hover {
-  color: var(--yellow);
+  color: var(--accent);
 }
 
 .td-price {

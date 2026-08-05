@@ -2,20 +2,20 @@
  * Every piece of naming lives here. Rename the product in one place.
  */
 export const BRAND = {
-  name: 'bStake',
-  nameA: 'b', // rendered in yellow — echoes the bStock ticker prefix
+  name: 'pStake',
+  nameA: 'p', // rendered in the accent colour — echoes the pStock prefix
   nameB: 'Stake', // rendered in white
   tagline: 'Stake your bag. Earn real stocks.',
-  domain: 'bstake.sh',
+  domain: 'stakeonpons.xyz',
   twitter: 'https://x.com/bstakedotsh',
   /** The public repository. Cleared, the footer renders the entry as plain text instead. */
-  github: 'https://github.com/bstakedotsh/bstake',
-  chain: 'BNB Chain',
-  chainId: 56,
-  launchpad: 'flap.sh',
-  launchpadUrl: 'https://flap.sh',
+  github: 'https://github.com/bstakedotsh/pstake',
+  chain: 'Robinhood Chain',
+  chainId: 4663,
+  launchpad: 'Pons',
+  launchpadUrl: 'https://www.ponsfamily.com/launchpad',
   /**
-   * The bStake token contract address, shown as the copyable CA pill on the home page.
+   * The pStake token contract address, shown as the copyable CA pill on the home page.
    *
    * Empty until the token exists — the pill reads "TBA" rather than showing a fake or zero
    * address, because a zero address in a CA slot is exactly what a scam clone looks like.
@@ -26,7 +26,7 @@ export const BRAND = {
   tokenCa: '',
 
   /**
-   * The bStake token's own listing on /tokens.
+   * The pStake token's own listing on /tokens.
    *
    * It is the first token launched on this platform, so it is **pinned to the front of the grid and
    * shown regardless of any search or filter** — a visitor should never have to hunt for it, and a
@@ -38,10 +38,10 @@ export const BRAND = {
    * below so the card is right from the first block.
    */
   pinned: {
-    name: 'bStake',
-    symbol: 'bStake',
+    name: 'pStake',
+    symbol: 'pStake',
     /** Shipped artwork, not read from token metadata — this is the brand mark. */
-    image: '/bstake-token.png',
+    image: '/pstake-token.png',
   },
 
   /**
@@ -50,7 +50,7 @@ export const BRAND = {
    * There used to be, holding the zero address, and `/docs` printed it under "set your creator-fee
    * recipient to:" with a copy button — an instruction that would have burned a creator's fee
    * stream permanently. It is gone rather than corrected because the real destination must not be
-   * a display value at all: it lives in `LAUNCH_POLICY.feeRecipient` (`lib/flap.ts`), is applied
+   * a display value at all: it lives in `LAUNCH_POLICY.feeRecipient` (`lib/pons.ts`), is applied
    * inside the launch transaction, and is never rendered.
    *
    * Do not reintroduce a fee address in this file, and do not print one anywhere in the UI.
@@ -60,12 +60,12 @@ export const BRAND = {
   protocolFeeBps: 200,
 
   /**
-   * Optional. Only relevant if bStake ever deploys tokens from its OWN wallet on a creator's
+   * Optional. Only relevant if pStake ever deploys tokens from its OWN wallet on a creator's
    * behalf — a custodial model this app does not use.
    *
    * The launch flow sends the transaction from **the creator's own wallet**, so the deployer in a
    * launch event is a different address every time and cannot identify "launched here". What
-   * identifies a bStake token is its **fee beneficiary** — see `isOurs()` in `registry.ts`.
+   * identifies a pStake token is its **fee beneficiary** — see `isOurs()` in `registry.ts`.
    */
   launcherWallets: [] as readonly string[],
 

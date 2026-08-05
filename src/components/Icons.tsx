@@ -130,7 +130,7 @@ export const Clock = ({ size = 16 }: P) => (
  * background, which is what keeps it legible at favicon sizes and on either theme.
  */
 /**
- * The bStake mark — the operator's actual logo file, not a redrawn approximation.
+ * The pStake mark — the operator's actual logo file, not a redrawn approximation.
  *
  * Served from `/logo-64.png` rather than the 500px original so a 28px header slot is not
  * downscaling a 140 KB image; 64px covers 2× displays at the sizes this is used.
@@ -142,12 +142,16 @@ export const Mark = ({ size = 28 }: P) => (
   <img src="/logo-64.png" width={size} height={size} alt="" aria-hidden style={{ display: 'block' }} />
 )
 
-/** Generic yellow diamond used as the chain indicator. */
-export const BnbMark = ({ size = 15 }: P) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="#F0B90B">
-    <rect x="12" y="1.5" width="7.4" height="7.4" rx="1.2" transform="rotate(45 12 1.5)" />
-    <rect x="12" y="12.2" width="7.4" height="7.4" rx="1.2" transform="rotate(45 12 12.2)" />
-    <rect x="6.7" y="6.9" width="7.4" height="7.4" rx="1.2" transform="rotate(45 6.7 6.9)" />
-    <rect x="17.3" y="6.9" width="7.4" height="7.4" rx="1.2" transform="rotate(45 17.3 6.9)" />
+/**
+ * The chain indicator.
+ *
+ * ⚠ Was BNB's four-diamond cube in Binance yellow. It takes its colour from `--accent` now rather
+ * than a hard-coded hex, so it cannot drift away from the rest of the theme the way the old one
+ * would have.
+ */
+export const ChainMark = ({ size = 15 }: P) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="var(--accent)">
+    <circle cx="12" cy="12" r="9" opacity="0.18" />
+    <path d="M7.5 14.6 L10.6 10.2 L13.4 12.9 L17 7.6" stroke="var(--accent)" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )

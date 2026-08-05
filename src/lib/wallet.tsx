@@ -22,7 +22,7 @@ type WalletState = {
   address: string | null
   connected: boolean
   chainId: number | null
-  /** Native BNB balance, refreshed on connect and on account/chain change. */
+  /** Native ETH balance, refreshed on connect and on account/chain change. */
   balanceBnb: number
   /** The connected wallet's name and icon, for the header. */
   wallet: { name: string; icon: string } | null
@@ -41,7 +41,7 @@ type WalletState = {
   switchChain: () => Promise<void>
 }
 
-const LAST_WALLET = 'bstake.last-wallet-rdns'
+const LAST_WALLET = 'pstake.last-wallet-rdns'
 
 const Ctx = createContext<WalletState | null>(null)
 

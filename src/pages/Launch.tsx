@@ -1,54 +1,50 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { parseUnits, type Address } from 'viem'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { Address } from 'viem'
 import { BRAND } from '../brand'
-import { STOCKS, fetchQuotes, stockByTicker, type Quote } from '../lib/stocks'
+import { STOCKS, fetchQuotes, type Quote } from '../lib/stocks'
 import {
   EMPTY_LINKS,
-  QUOTE_ERC20_ABI,
-  approveQuoteIfNeeded,
-  findVanitySalt,
+  readLaunchGate,
   sendLaunch,
   validateLaunch,
+  type LaunchGate,
   type LaunchLinks,
-} from '../lib/flap'
-import { readBalances, tokenFromReceipt } from '../lib/flapIndexer'
+} from '../lib/pons'
+import { tokenFromReceipt } from '../lib/ponsIndexer'
 import { recordLaunch } from '../lib/registry'
-import { usd } from '../lib/format'
-import { publicClient } from '../lib/chain'
-import { hasMetadata, pinImage, pinTokenMetadata } from '../lib/ipfs'
+import { publicClient, explorerTx } from '../lib/chain'
 import { useWallet } from '../lib/wallet'
-import { Info, Rocket, Wallet } from '../components/Icons'
+import { useToast } from '../lib/toast'
+import { StockBadge } from '../components/Ui'
+import { Arrow, External, Rocket } from '../components/Icons'
 
 /**
- * The optional social links. The grid fills row by row, so this array order IS the on-screen
- * order: X and Website lead the first row, Telegram sits last. Keyed by `LaunchLinks` so a typo
- * here is a compile error rather than a silently dead field.
+ * Launching a token through pStake.
+ *
+ * ## What changed from the flap build, and why the form is shorter
+ *
+ * Pons takes the token's **logo, description and socials as plain strings in the launch call**, so
+ * there is no image upload, no IPFS pin and no metadata document. The old flow needed a pinning
+ * proxy with a server-side key just to get an image on chain.
+ *
+ * There is also **no initial dev buy and no vanity salt**: `launchToken` takes params, a config id
+ * and the pair token, and `msg.value` is the launch fee alone. flap needed an ERC-20 approval first
+ * — the creator's buy was denominated in the quote asset — and a CREATE2 salt ground to an address
+ * ending 7777. Neither exists here, so neither is asked for.
+ *
+ * ⚠⚠ **The gate is real, not decoration.** Pons controls `launchEnabled()` on the factory and it is
+ * false today. This form reads it live on mount and again on submit: when Pons is closed, launching
+ * is impossible and the page says so plainly rather than offering a button that produces a reverted
+ * transaction and a lost gas fee.
  */
-const LINK_FIELDS: { key: keyof LaunchLinks; label: string; placeholder: string }[] = [
-  { key: 'twitter', label: 'X', placeholder: 'https://x.com/…' },
-  { key: 'website', label: 'Website', placeholder: 'https://…' },
-  { key: 'github', label: 'GitHub', placeholder: 'https://github.com/…' },
-  { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/…' },
-  { key: 'debox', label: 'DeBox', placeholder: 'https://debox.pro/…' },
-  { key: 'telegram', label: 'Telegram', placeholder: 'https://t.me/…' },
-]
-
-type Status =
-  | { kind: 'idle' }
-  | { kind: 'uploading' }
-  | { kind: 'approving' }
-  | { kind: 'pending' }
-  | { kind: 'confirming' }
-  | { kind: 'error'; message: string }
-
 export default function Launch() {
   return (
     <div className="wrap page">
       <div className="page-head page-head-center">
         <h1>Launch a token</h1>
         <p style={{ margin: '12px auto 0' }}>
-          Deploy a staking-enabled {BRAND.launchpad} token paired with a bStock.
+          Deploy a staking-enabled {BRAND.launchpad} token paired with a pStock.
         </p>
       </div>
 
@@ -59,401 +55,247 @@ export default function Launch() {
   )
 }
 
-/* ------------------------------------------------------------------ */
-/* Launch a new token                                                  */
-/* ------------------------------------------------------------------ */
+type Status =
+  | { kind: 'idle' }
+  | { kind: 'signing' }
+  | { kind: 'confirming'; hash: string }
+  | { kind: 'done'; hash: string; token: string }
+  | { kind: 'error'; message: string }
 
 function CreateForm() {
-  const { connected, openPicker, chainId, switchChain, provider, address } = useWallet()
+  const wallet = useWallet()
+  const toast = useToast()
   const navigate = useNavigate()
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState('')
   const [symbol, setSymbol] = useState('')
   const [description, setDescription] = useState('')
+  const [logo, setLogo] = useState('')
   const [quoteAsset, setQuoteAsset] = useState('')
-  const [devBuy, setDevBuy] = useState('')
   const [links, setLinks] = useState<LaunchLinks>(EMPTY_LINKS)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageFile, setImageFile] = useState<File | null>(null)
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [touched, setTouched] = useState(false)
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
-  const [quoteBalance, setQuoteBalance] = useState<number | null>(null)
-
-  const stock = quoteAsset ? stockByTicker(quoteAsset) : undefined
-  const quotePrice = quoteAsset ? (quotes[quoteAsset]?.priceUsd ?? null) : null
+  const [gate, setGate] = useState<LaunchGate | null>(null)
 
   useEffect(() => {
     void fetchQuotes().then(setQuotes).catch(() => {})
+    // Read live on every mount. A cached "open" would offer a transaction the chain rejects.
+    void readLaunchGate()
+      .then(setGate)
+      .catch(() => setGate({ enabled: false, feeWei: 0n }))
   }, [])
 
-  // The creator's holding of the asset the token will actually be bought with. Re-read whenever
-  // the pick changes, because each bStock is a different token with its own balance.
-  useEffect(() => {
-    setQuoteBalance(null)
-    if (!address || !stock?.address) return
-    let cancelled = false
-    void readBalances(address as Address, [stock.address as Address])
-      .then((b) => {
-        if (cancelled) return
-        const raw = b[stock.address!.toLowerCase()]
-        setQuoteBalance(raw === undefined ? null : Number(raw) / 10 ** stock.decimals)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [address, stock])
-  const quoteAssets = STOCKS
-  const wrongChain = connected && chainId !== BRAND.chainId
-
-  const errors = useMemo(
-    () => validateLaunch({ name, symbol, quoteAsset, devBuy, quoteBalance }),
-    [name, symbol, quoteAsset, devBuy, quoteBalance],
+  const stock = useMemo(() => STOCKS.find((s) => s.ticker === quoteAsset), [quoteAsset])
+  const error = useMemo(
+    () => validateLaunch({ name, symbol, quoteTokenAddress: stock?.address ?? '' }),
+    [name, symbol, stock],
   )
-  const valid = Object.keys(errors).length === 0
-  const show = (k: string) => (touched ? errors[k] : undefined)
 
-  const devBuyNum = Number(devBuy) || 0
-
-  function pickImage(file: File | undefined) {
-    if (!file) return
-    setImageFile(file)
-    setImageUrl(URL.createObjectURL(file))
-  }
+  const busy = status.kind === 'signing' || status.kind === 'confirming'
+  const canSubmit = !!gate?.enabled && !error && !busy && !!wallet.address
 
   async function onSubmit() {
     setTouched(true)
-    if (!valid) return
-    if (!provider || !address) return openPicker()
-    if (!stock?.address) return
+    if (!wallet.address || !wallet.provider || !stock || error) return
+
+    // Re-read rather than trusting what was fetched on mount: Pons can close launches between the
+    // page loading and this click, and the failure mode is a reverted transaction whose gas the
+    // creator has already paid for.
+    const live = await readLaunchGate().catch(() => null)
+    if (!live?.enabled) {
+      setGate(live ?? { enabled: false, feeWei: 0n })
+      setStatus({ kind: 'error', message: 'Pons is not accepting launches right now.' })
+      return
+    }
+
     try {
-      // The on-chain `meta` field is one string: the CID of a document holding the artwork and the
-      // links. Pinning runs BEFORE anything is signed, so if it fails the creator sees a plain
-      // error with nothing spent — rather than a confirmed launch that silently lost their image.
-      // A token with nothing to describe skips it entirely and launches with an empty meta.
-      let meta = ''
-      if (hasMetadata(imageFile, links, description)) {
-        setStatus({ kind: 'uploading' })
-        const imageCid = imageFile ? await pinImage(imageFile) : ''
-        meta = await pinTokenMetadata({
+      setStatus({ kind: 'signing' })
+      const hash = await sendLaunch(wallet.provider, {
+        owner: wallet.address as Address,
+        params: {
           name: name.trim(),
-          symbol: symbol.trim().toUpperCase(),
+          symbol: symbol.trim(),
           description: description.trim(),
-          imageCid,
-          links,
-        })
-      }
-
-      // ⚠ The buy is denominated in the quote asset, so it uses THAT token's decimals. XAUT is 6,
-      // not 18 — parsing against a fixed 18 would ask for a million times the intended amount.
-      const quoteAmt = parseUnits(devBuy.trim() || '0', stock.decimals)
-
-      // The Portal pulls the quote asset with `transferFrom`, so the allowance has to exist before
-      // the launch. Its own wallet prompt, and it must confirm before the launch is signed.
-      if (quoteAmt > 0n) {
-        setStatus({ kind: 'approving' })
-        const approval = await approveQuoteIfNeeded(
-          { quoteToken: stock.address as Address, amount: quoteAmt, owner: address as Address },
-          {
-            provider,
-            readAllowance: (token, owner, spender) =>
-              publicClient.readContract({
-                address: token,
-                abi: QUOTE_ERC20_ABI,
-                functionName: 'allowance',
-                args: [owner, spender],
-              }),
-          },
-        )
-        if (approval) await publicClient.waitForTransactionReceipt({ hash: approval })
-      }
-
-      setStatus({ kind: 'pending' })
-
-      // The Portal requires the token address to end in 7777, so the salt is ground for it here
-      // rather than guessed. Local hashing, well under a second.
-      const { salt } = findVanitySalt(`${address}:${symbol}:${Date.now()}`)
-
-      const hash = await sendLaunch(
-        {
-          name: name.trim(),
-          symbol: symbol.trim().toUpperCase(),
-          description: description.trim(),
-          imageCid: meta,
-          quoteAsset,
+          logo: logo.trim(),
+          quoteAsset: stock.ticker,
           quoteTokenAddress: stock.address,
-          quoteAmt,
-          salt,
           links,
         },
-        { provider, from: address },
-      )
+        launchFeeWei: live.feeWei,
+      })
 
-      // Wait for the launch to actually confirm, then read the new token address straight out of
-      // the Portal log in its own receipt. This is the one moment the site knows for certain that
-      // a launch was its own, so it is where the token gets recorded.
-      setStatus({ kind: 'confirming' })
+      setStatus({ kind: 'confirming', hash })
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
       const token = tokenFromReceipt(receipt)
-      if (!token) throw new Error('The launch confirmed but no token address was found in the receipt.')
+      if (!token) throw new Error('The launch confirmed but the token address could not be read.')
 
-      // Awaited: it writes the shared listing, and navigating first would land on a list that has
-      // not been written yet.
-      await recordLaunch({ address: token, reward: quoteAsset, txHash: hash })
-      // Straight to the list, where it now appears.
-      navigate('/tokens')
+      // Records locally and submits to the shared registry, which re-verifies the fee route on
+      // chain before listing. Never throws: a launch that confirmed must not look like a failure.
+      await recordLaunch({ address: token, reward: stock.ticker, txHash: hash })
+
+      setStatus({ kind: 'done', hash, token })
+      toast.show(`${symbol.trim()} is live`)
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      const message = err instanceof Error ? err.message : 'The launch could not be sent.'
+      setStatus({ kind: 'error', message })
     }
   }
 
-  const busy =
-    status.kind === 'pending' ||
-    status.kind === 'uploading' ||
-    status.kind === 'approving' ||
-    status.kind === 'confirming'
+  if (status.kind === 'done') {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+        <h2 style={{ marginTop: 0 }}>
+          {symbol.trim()} is live on {BRAND.chain}
+        </h2>
+        <p className="muted">
+          Paired with {stock?.ticker}. Its creator fees fund everyone staking {stock?.ticker}.
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 22 }}>
+          <button className="btn btn-primary" onClick={() => navigate(`/token/${status.token}`)}>
+            View token <Arrow />
+          </button>
+          <a className="btn" href={explorerTx(status.hash)} target="_blank" rel="noreferrer">
+            Transaction <External />
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      {/* ------------------------------ form ------------------------------ */}
-      <div className="card">
-        <h2 style={{ fontSize: 19, marginBottom: 20, textAlign: 'center' }}>Token</h2>
-
-        <div className="field">
-          <div className="field-label">
-            <span>Image</span>
-            <b>PNG, JPG or WebP</b>
-          </div>
-          <button className="image-drop" onClick={() => fileRef.current?.click()}>
-            {imageUrl ? (
-              <img src={imageUrl} alt="" />
-            ) : (
-              <span className="image-drop-empty">
-                <Rocket size={20} />
-                <span>Choose an image</span>
-              </span>
-            )}
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            hidden
-            onChange={(e) => pickImage(e.target.files?.[0])}
-          />
+    <div className="card" style={{ padding: 26 }}>
+      {/*
+        Pons's own switch, stated plainly. It is not a pStake setting and no amount of retrying
+        changes it, so the honest thing is to name who controls it.
+      */}
+      {gate && !gate.enabled && (
+        <div className="form-error" style={{ marginBottom: 20 }}>
+          Pons is not accepting launches right now. The factory's own <code>launchEnabled</code> flag
+          is off; this page follows it, so launching works again the moment Pons opens it.
         </div>
+      )}
 
-        <div className="grid grid-2" style={{ gap: 14 }}>
-          <div className="field">
-            <div className="field-label">
-              <span>Name</span>
-            </div>
-            <div className="amount-input">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="MarsCoin"
-                maxLength={32}
-                style={{ fontSize: 15 }}
-              />
-            </div>
-            {show('name') && <p className="field-error">{errors.name}</p>}
-          </div>
-
-          <div className="field">
-            <div className="field-label">
-              <span>Ticker</span>
-            </div>
-            <div className="amount-input">
-              <input
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="MarsCoin"
-                maxLength={10}
-                style={{ fontSize: 15 }}
-              />
-            </div>
-            {show('symbol') && <p className="field-error">{errors.symbol}</p>}
-          </div>
+      <div className="field">
+        <div className="field-label">
+          <span>Logo URL</span>
+          <b>stored on chain</b>
         </div>
-
-        <div className="field">
-          <div className="field-label">
-            <span>Description</span>
-            <b>{description.length}/280</b>
-          </div>
-          <textarea
-            className="textarea"
-            value={description}
-            onChange={(e) => setDescription(e.target.value.slice(0, 280))}
-            placeholder="What is this token about?"
-            rows={3}
-          />
+        <div className="amount-input">
+          <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://… or ipfs://…" />
         </div>
-
-        <h2 style={{ fontSize: 19, margin: '32px 0 20px', textAlign: 'center' }}>bStock</h2>
-
-        <div className="field">
-          <div className="field-label" style={{ justifyContent: 'center' }}>
-            <span>Quote asset: the stock your stakers get paid in</span>
-          </div>
-          <div className="quote-grid">
-            {quoteAssets.map((s) => (
-              <button
-                key={s.ticker}
-                className={`quote-opt ${quoteAsset === s.ticker ? 'on' : ''}`}
-                onClick={() => setQuoteAsset(s.ticker)}
-              >
-                <span className="mono qt">{s.ticker}</span>
-                <span className="qc">{s.company}</span>
-              </button>
-            ))}
-          </div>
-          {show('quoteAsset') && <p className="field-error">{errors.quoteAsset}</p>}
-        </div>
-
-        <h2 style={{ fontSize: 19, margin: '32px 0 20px', textAlign: 'center' }}>Optional links</h2>
-
-        <div className="link-grid">
-          {LINK_FIELDS.map((f) => (
-            <div className="field" key={f.key}>
-              <div className="field-label">
-                <span>{f.label}</span>
-              </div>
-              <div className="amount-input">
-                <input
-                  value={links[f.key]}
-                  onChange={(e) => setLinks((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  inputMode="url"
-                  style={{ fontSize: 15 }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <h2 style={{ fontSize: 19, margin: '32px 0 20px', textAlign: 'center' }}>
-          Creator Token Purchase (Optional)
-        </h2>
-
-        <div className="field">
-          <div className="field-label">
-            <span>Your initial buy (optional)</span>
-            {/* Balance only appears once a stock is picked: until then there is no asset to state a
-                balance in, and showing BNB would be wrong — the buy is made in the quote asset. */}
-            {quoteAsset && (
-              <b className="mono">
-                {quoteBalance === null ? '…' : `Balance: ${quoteBalance.toLocaleString('en-US', {
-                  maximumFractionDigits: 6,
-                })} ${quoteAsset}`}
-              </b>
-            )}
-          </div>
-
-          {quoteAsset ? (
-            <>
-              <div className="amount-input">
-                <input
-                  inputMode="decimal"
-                  value={devBuy}
-                  onChange={(e) => setDevBuy(e.target.value.replace(/[^0-9.]/g, ''))}
-                  placeholder="0.0"
-                />
-                {quoteBalance !== null && quoteBalance > 0 && (
-                  <button className="max-btn" onClick={() => setDevBuy(String(quoteBalance))}>
-                    MAX
-                  </button>
-                )}
-                <span className="unit">{quoteAsset}</span>
-              </div>
-
-              <div className="buy-value">
-                <span>You will buy with</span>
-                <b className="mono">
-                  {devBuyNum > 0 && quotePrice !== null
-                    ? usd(devBuyNum * quotePrice)
-                    : devBuyNum > 0
-                      ? '—'
-                      : usd(0)}
-                </b>
-              </div>
-              {quotePrice !== null && (
-                <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
-                  1 {quoteAsset} = {usd(quotePrice)}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="muted center" style={{ fontSize: 13.5 }}>
-              Pick a bStock above first. Your token is bought with that stock, so the first buy is
-              made in it rather than in BNB.
-            </p>
-          )}
-          {show('devBuy') && <p className="field-error">{errors.devBuy}</p>}
-        </div>
-
-        {/* ------------------------------ submit ------------------------------ */}
-        {!connected ? (
-          <button className="btn btn-primary btn-lg btn-block" onClick={openPicker}>
-            <Wallet /> Connect Wallet
-          </button>
-        ) : wrongChain ? (
-          <button className="btn btn-primary btn-lg btn-block" onClick={switchChain}>
-            Switch to {BRAND.chain}
-          </button>
-        ) : (
-          <button className="btn btn-primary btn-lg btn-block" onClick={onSubmit} disabled={busy}>
-            <Rocket size={17} />
-            {status.kind === 'uploading'
-              ? 'Pinning image…'
-              : status.kind === 'approving'
-                ? `Approve ${quoteAsset} in your wallet…`
-              : status.kind === 'pending'
-                ? 'Confirm in your wallet…'
-                : status.kind === 'confirming'
-                  ? 'Launching…'
-                : `Launch ${symbol ? '$' + symbol : 'token'}`}
-          </button>
-        )}
-
-        {status.kind === 'error' && (
-          <div className="alert alert-error">
-            <Info />
-            <div>
-              <b>Launch failed</b>
-              <p>{status.message}</p>
-            </div>
+        {logo.trim() !== '' && (
+          <div className="image-drop" style={{ marginTop: 10 }}>
+            <img src={logo} alt="" />
           </div>
         )}
-
       </div>
 
-      {/* Three short columns rather than a bullet list: the card is 980px wide, and a left-aligned
-          list under a centred heading leaves the right half empty. Mirrors "How it works" on Home. */}
-      <div style={{ marginTop: 34 }}>
-        <div className="section-head section-head-center">
-          <h2 style={{ fontSize: 24 }}>What launching here changes</h2>
-        </div>
-        <div className="grid grid-3">
-          <div className="step step-plain">
-            <p>
-              The fee beneficiary is set inside the launch transaction so there is nothing to
-              configure afterwards.
-            </p>
+      <div className="grid grid-2" style={{ gap: 14 }}>
+        <div className="field">
+          <div className="field-label">
+            <span>Name</span>
           </div>
-          <div className="step step-plain">
-            <p>The quote asset is enforced as a bStock, so rewards are real equity from day one.</p>
-          </div>
-          <div className="step step-plain">
-            <p>Your pool opens the moment the token exists.</p>
+          <div className="amount-input">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="MarsCoin" maxLength={32} />
           </div>
         </div>
-        <p className="muted center" style={{ fontSize: 13, marginTop: 16 }}>
-          {BRAND.name} never takes custody of your token.
-        </p>
+        <div className="field">
+          <div className="field-label">
+            <span>Symbol</span>
+          </div>
+          <div className="amount-input">
+            <input
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              placeholder="MARS"
+              maxLength={16}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="field">
+        <div className="field-label">
+          <span>Description</span>
+        </div>
+        <textarea
+          className="textarea"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What is this token about?"
+          rows={3}
+        />
+      </div>
+
+      <div className="field">
+        <div className="field-label">
+          <span>Paired pStock</span>
+          <b>what stakers are paid in</b>
+        </div>
+        <div className="stock-picker">
+          {STOCKS.map((s) => (
+            <button
+              key={s.ticker}
+              className={`stock-pick${quoteAsset === s.ticker ? ' active' : ''}`}
+              onClick={() => setQuoteAsset(s.ticker)}
+            >
+              <StockBadge ticker={s.ticker} to={false} />
+              <span className="muted mono">
+                {quotes[s.ticker] ? `$${quotes[s.ticker].priceUsd.toFixed(2)}` : '—'}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-2" style={{ gap: 14 }}>
+        {(
+          [
+            { key: 'twitter', label: 'X', placeholder: 'https://x.com/…' },
+            { key: 'telegram', label: 'Telegram', placeholder: 'https://t.me/…' },
+            { key: 'discord', label: 'Discord', placeholder: 'https://discord.gg/…' },
+            { key: 'website', label: 'Website', placeholder: 'https://…' },
+            { key: 'farcaster', label: 'Farcaster', placeholder: 'https://warpcast.com/…' },
+          ] as const
+        ).map((f) => (
+          <div className="field" key={f.key}>
+            <div className="field-label">
+              <span>{f.label}</span>
+              <b>optional</b>
+            </div>
+            <div className="amount-input">
+              <input
+                value={links[f.key]}
+                onChange={(e) => setLinks({ ...links, [f.key]: e.target.value })}
+                placeholder={f.placeholder}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {touched && error && <div className="form-error">{error}</div>}
+      {status.kind === 'error' && <div className="form-error">{status.message}</div>}
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+        {wallet.address ? (
+          <button className="btn btn-primary btn-lg" disabled={!canSubmit} onClick={onSubmit}>
+            {status.kind === 'signing' ? (
+              'Confirm in your wallet…'
+            ) : status.kind === 'confirming' ? (
+              'Launching…'
+            ) : (
+              <>
+                Launch token <Rocket size={16} />
+              </>
+            )}
+          </button>
+        ) : (
+          <button className="btn btn-primary btn-lg" onClick={wallet.openPicker}>
+            Connect wallet
+          </button>
+        )}
       </div>
     </div>
   )

@@ -6,18 +6,18 @@ import { BRAND, LOCK_TIERS } from '../brand'
  *
  *  - Nothing here describes any part of the product as forthcoming. Present tense throughout.
  *  - No emojis, no hashtags, no double hyphens.
- *  - No fee-recipient address for a creator to copy. Launching through bStake sets the fee route
+ *  - No fee-recipient address for a creator to copy. Launching through pStake sets the fee route
  *    inside the launch transaction, so there is nothing to configure by hand, and an address
  *    printed here would be one somebody could get permanently wrong.
  *
- * ⚠ Accuracy note: flap PUSHES creator fees. They accumulate in the token's own tax processor and
+ * ⚠ Accuracy note: pons PUSHES creator fees. They accumulate in the token's own tax processor and
  * are dispatched to the fee route when trading triggers it. An earlier version of this page said
  * they were claimed on a schedule, which was wrong.
  */
 
 const TOC = [
   ['overview', 'Overview'],
-  ['bstocks', 'What a bStock is'],
+  ['bstocks', 'What a pStock is'],
   ['tracks', 'The two reward tracks'],
   ['locking', 'Locking'],
   ['rewards', 'How rewards are calculated'],
@@ -31,7 +31,7 @@ export default function Docs() {
     <div className="wrap page">
       <div className="page-head page-head-center">
         <h1>Docs</h1>
-        <p>How {BRAND.name} enables staking on Binance Smart Chain.</p>
+        <p>How {BRAND.name} enables staking on Robinhood Chain.</p>
       </div>
 
       <div className="doc-layout">
@@ -52,13 +52,13 @@ export default function Docs() {
           </p>
           <p>
             What makes it different from other staking sites is the payout. It is not the token you
-            staked, and it is not a chain's native coin. It is a <b>bStock</b>, a tokenized US
+            staked, and it is not a chain's native coin. It is a <b>pStock</b>, a tokenized US
             equity. Your share of trading volume arrives as NVIDIA, Tesla or Microsoft.
           </p>
 
-          <h2 id="bstocks">What a bStock is</h2>
+          <h2 id="bstocks">What a pStock is</h2>
           <p>
-            A bStock is a BEP-20 token on {BRAND.chain} that represents one real share, held 1:1 by a
+            A pStock is a ERC-20 token on {BRAND.chain} that represents one real share, held 1:1 by a
             regulated custodian. It gives full economic exposure to the underlying listing, including
             price, dividends and corporate actions, and it trades continuously rather than only
             during US market hours.
@@ -70,9 +70,9 @@ export default function Docs() {
             index funds.
           </p>
           <p>
-            Because a bStock is an ordinary BEP-20, once claimed you can hold it, swap it on
-            PancakeSwap, or post it as collateral without touching your stake. The full list, with
-            live prices, is on the <Link to="/bstocks">bStocks page</Link>.
+            Because a pStock is an ordinary ERC-20, once claimed you can hold it, swap it on
+            Uniswap, or post it as collateral without touching your stake. The full list, with
+            live prices, is on the <Link to="/pstocks">pStocks page</Link>.
           </p>
 
           <h2 id="tracks">The two reward tracks</h2>
@@ -83,19 +83,19 @@ export default function Docs() {
 
           <h3>Stake a token launched through {BRAND.name}</h3>
           <p>
-            Every token launched here is paired against a bStock. Because the pair is denominated in
+            Every token launched here is paired against a pStock. Because the pair is denominated in
             that stock, the fees the token generates are already in it, so paying its stakers in that
             stock is the natural settlement rather than a conversion bolted on afterwards.
           </p>
           <ol>
-            <li>A creator launches a token against a bStock of their choosing.</li>
+            <li>A creator launches a token against a pStock of their choosing.</li>
             <li>
               The fee route is written into the launch transaction itself, so the token is wired to
               its stakers from the moment it exists.
             </li>
             <li>
               Trading the token collects a tax. That tax accrues in the token's own processor and is
-              paid out to the fee route, denominated in the bStock the token is paired against.
+              paid out to the fee route, denominated in the pStock the token is paired against.
             </li>
             <li>
               Everything a token generates goes to that token's own pool. Pools never mix, so a pool
@@ -103,15 +103,15 @@ export default function Docs() {
             </li>
           </ol>
 
-          <h3>Stake a bStock</h3>
+          <h3>Stake a pStock</h3>
           <p>
-            The second track is funded by the {BRAND.name} token itself. You stake any bStock, and you
+            The second track is funded by the {BRAND.name} token itself. You stake any pStock, and you
             earn from the fees the {BRAND.name} token generates. The {BRAND.name} token is not staked:
-            holding bStocks is what earns from it.
+            holding pStocks is what earns from it.
           </p>
           <p>
             This is why the two tracks stay separate. One is funded by a single token's own volume and
-            pays in one stock. The other is funded by {BRAND.name}'s volume and pays across bStocks.
+            pays in one stock. The other is funded by {BRAND.name}'s volume and pays across pStocks.
           </p>
 
           <h2 id="locking">Locking</h2>
@@ -160,7 +160,7 @@ export default function Docs() {
 
           <h2 id="creators">For creators</h2>
           <p>
-            Anyone can plug a token in. Launch through {BRAND.name} against a bStock quote asset and
+            Anyone can plug a token in. Launch through {BRAND.name} against a pStock quote asset and
             the fee route is set inside the launch transaction itself, so there is no address to copy
             and nothing to configure afterwards. The full walkthrough is on the{' '}
             <Link to="/launch">Launch page</Link>.
@@ -175,9 +175,15 @@ export default function Docs() {
 
           <h2 id="fees">Fees</h2>
           <ul>
+            {/*
+              ⚠ This once described a 2% buy tax and a 2% sell tax. Pons has no transfer tax at
+              all: it charges one creator rate through the curve and the pool hook, so a "buy tax
+              and sell tax" claim here would describe a mechanism the contract does not have.
+            */}
             <li>
-              <b>Trading tax:</b> a token launched here carries a 2% buy tax and a 2% sell tax. That
-              tax is the entire reward pot, and it is what funds the people staking the token.
+              <b>Creator fee:</b> a token launched here charges 2% on its trading, taken by {' '}
+              {BRAND.launchpad} as it trades rather than on transfer. That fee is the entire reward
+              pot, and it is what funds the people staking the paired pStock.
             </li>
             <li>
               <b>Protocol cut:</b> {BRAND.protocolFeeBps / 100}% of collected fees, taken before

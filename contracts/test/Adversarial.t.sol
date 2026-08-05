@@ -2,14 +2,16 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {BStakeStaking} from "../src/BStakeStaking.sol";
+import {PStakeStaking} from "../src/PStakeStaking.sol";
 import {MockToken} from "./mocks/Tokens.sol";
+import {MockPonsEscrow} from "./mocks/Escrow.sol";
 
 /// Hostile pass: things the happy-path suite was not looking for.
 contract AdversarialTest is Test {
-    BStakeStaking internal s;
+    PStakeStaking internal s;
     MockToken internal tok;
     MockToken internal rew;
+    MockPonsEscrow internal escrow;
 
     address internal owner = address(0xB0B);
     address internal feeWallet = address(0xFEE);
@@ -19,12 +21,13 @@ contract AdversarialTest is Test {
     uint256 internal pool;
 
     function setUp() public {
-        s = new BStakeStaking(owner);
+        escrow = new MockPonsEscrow();
+        s = new PStakeStaking(owner, address(escrow));
         tok = new MockToken("Stake", "STK", 18);
         rew = new MockToken("Reward", "RWD", 18);
 
         vm.startPrank(owner);
-        pool = s.createPool(address(tok), address(rew));
+        pool = s.createPool(address(tok), address(rew), 0);
         s.setDepositor(feeWallet, true);
         s.setStakingOpen(true);
         vm.stopPrank();
@@ -129,7 +132,7 @@ contract AdversarialTest is Test {
 
         // dust has no position 0 of their own.
         vm.prank(dust);
-        vm.expectRevert(BStakeStaking.NoSuchPosition.selector);
+        vm.expectRevert(PStakeStaking.NoSuchPosition.selector);
         s.claim(pool, 0);
     }
 

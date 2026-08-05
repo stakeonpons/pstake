@@ -27,7 +27,7 @@ export default function WalletModal() {
       open={pickerOpen}
       onClose={closePicker}
       title="Connect a wallet"
-      subtitle={`bStake runs on ${BRAND.chain}. Choose a wallet to continue.`}
+      subtitle={`pStake runs on ${BRAND.chain}. Choose a wallet to continue.`}
     >
       {list.length > 0 ? (
         <div className="wallet-list">
@@ -72,7 +72,7 @@ export default function WalletModal() {
       {error && <div className="alert alert-error" style={{ marginTop: 14 }}>{error}</div>}
 
       <p className="muted" style={{ fontSize: 12.5, marginTop: 18, lineHeight: 1.6 }}>
-        bStake never asks for a seed phrase or private key, and cannot move your funds without a
+        pStake never asks for a seed phrase or private key, and cannot move your funds without a
         transaction you approve yourself.
       </p>
     </Modal>

@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit-token": "node scripts/audit-token.mjs",
+    "go-live": "node scripts/go-live.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

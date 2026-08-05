@@ -2,25 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { isAddress, getAddress } from 'viem'
 import { BRAND } from '../brand'
-import { readToken, fetchBnbUsd, type OnChainToken } from '../lib/flapIndexer'
-import { STOCKS, fetchQuotes, stockByTicker, type Quote } from '../lib/stocks'
+import { readToken, fetchNativeUsd, type OnChainToken } from '../lib/ponsIndexer'
+import { STOCKS, fetchQuotes, type Quote } from '../lib/stocks'
 import { fetchMarketExtras, age, type MarketExtras } from '../lib/market'
-import { fetchTokenMeta, type TokenMeta } from '../lib/tokenMeta'
-import { readRecentTrades, priceSeries, type Trade } from '../lib/trades'
-import { readTokenTaxes, readTaxTokenInfo, type TokenTaxes, type TaxTokenInfo } from '../lib/tax'
+import { readTokenArt } from '../lib/ponsIndexer'
+import { readFeeTerms, type TokenFeeTerms } from '../lib/fees'
+import type { TokenMeta } from '../lib/registry'
 import { isPinned } from '../lib/pinned'
+import { poolFor, readPools, type Pool } from '../lib/stakingContract'
 import { stakingModelFor } from '../lib/staking'
-import { explorerToken, explorerTx } from '../lib/chain'
+import { explorerToken } from '../lib/chain'
 import { amount as fmtAmount, shortAddr, usd } from '../lib/format'
 import { useToast } from '../lib/toast'
 import { Arrow, Check, Copy, External } from '../components/Icons'
-import { Empty, Sparkline, StockBadge } from '../components/Ui'
+import { Empty, StockBadge } from '../components/Ui'
 
 /**
  * One token's dashboard.
  *
  * Everything here is read live: the token's own contract, its pair's reserves and swap events,
- * Binance for the bStock price, DexScreener for the 24h figures, and the token's published
+ * Blockscout for the pStock price, DexScreener for the 24h figures, and the token's published
  * metadata for artwork and links. Nothing is invented — a value that cannot be read renders a dash.
  *
  * Staking figures read from the pool and are zero until somebody stakes.
@@ -32,11 +33,10 @@ export default function TokenDetail() {
   const [token, setToken] = useState<OnChainToken | null>(null)
   const [extras, setExtras] = useState<MarketExtras | null>(null)
   const [meta, setMeta] = useState<TokenMeta | null>(null)
-  const [taxes, setTaxes] = useState<TokenTaxes | null>(null)
-  const [taxInfo, setTaxInfo] = useState<TaxTokenInfo | null>(null)
-  const [trades, setTrades] = useState<Trade[] | null>(null)
+  const [feeTerms, setFeeTerms] = useState<TokenFeeTerms | null>(null)
+  const [pools, setPools] = useState<Pool[]>([])
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
-  const [bnbUsd, setBnbUsd] = useState<number | null>(null)
+  const [nativeUsd, setBnbUsd] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [broken, setBroken] = useState(false)
@@ -55,7 +55,7 @@ export default function TokenDetail() {
       const [t, q, bnb] = await Promise.all([
         readToken(address),
         fetchQuotes().catch((): Record<string, Quote> => ({})),
-        fetchBnbUsd(),
+        fetchNativeUsd(),
       ])
       setToken(t)
       setQuotes(q)
@@ -63,26 +63,19 @@ export default function TokenDetail() {
 
       // Each of these is independent and none should be able to empty the page.
       void fetchMarketExtras([address]).then((m) => setExtras(m[address.toLowerCase()] ?? null))
-      void readTokenTaxes(address).then(setTaxes).catch(() => {})
-      void readTaxTokenInfo(address).then(setTaxInfo).catch(() => {})
-      void fetchMarketExtras([address])
-        .then((m) => fetchTokenMeta(address, m[address.toLowerCase()]?.createdAtMs ?? null))
-        .then(setMeta)
+      void readFeeTerms(address).then(setFeeTerms).catch(() => {})
+      // One call: Pons keeps the logo and description on the token itself.
+      void readTokenArt(address)
+        .then((art) =>
+          setMeta({
+            imageUrl: art.logo,
+            description: art.description,
+            twitter: null,
+            telegram: null,
+            website: null,
+          }),
+        )
         .catch(() => {})
-
-      if (t.pair) {
-        const stock = t.quoteTicker ? stockByTicker(t.quoteTicker) : undefined
-        void readRecentTrades({
-          pair: t.pair,
-          token: address,
-          tokenDecimals: t.decimals,
-          quoteDecimals: stock?.decimals ?? 18,
-        })
-          .then(setTrades)
-          .catch(() => setTrades([]))
-      } else {
-        setTrades([])
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not read this token.')
     }
@@ -92,30 +85,41 @@ export default function TokenDetail() {
     void load()
   }, [load])
 
-  const quoteUsd = token?.quoteTicker ? (quotes[token.quoteTicker]?.priceUsd ?? null) : bnbUsd
+  useEffect(() => {
+    void readPools().then(setPools)
+  }, [])
+
+  /**
+   * Staking figures for this token, read from the pool.
+   *
+   * For a launched token that is its own pool. For the pStake token there is no single pool,
+   * because its stakers hold pStocks, so the totals are summed across every pStock pool.
+   */
+  const staking = useMemo(() => {
+    if (!token) return { totalStaked: 0n, decimals: 18, symbol: '' }
+    if (stakingModelFor(token.address) === 'pstake') {
+      const total = pools.reduce((sum, p) => sum + p.totalStaked, 0n)
+      return { totalStaked: total, decimals: 18, symbol: '' }
+    }
+    const pool = poolFor(pools, token.address)
+    return { totalStaked: pool?.totalStaked ?? 0n, decimals: token.decimals, symbol: token.symbol }
+  }, [pools, token])
+
+  const quoteUsd = token?.quoteTicker ? (quotes[token.quoteTicker]?.priceUsd ?? null) : nativeUsd
   const priceUsd = token && token.priceQuote !== null && quoteUsd !== null ? token.priceQuote * quoteUsd : null
   const supply = token ? Number(token.totalSupply) / 10 ** token.decimals : null
   const mcapUsd = priceUsd !== null && supply !== null ? priceUsd * supply : null
 
   /**
-   * Fees this token has actually paid its beneficiary, cumulative.
+   * ⛔ There is deliberately no per-token "fees earned" figure here.
    *
-   * ⚠ Measured, not estimated. flap's Tax Token Helper keeps the running total per token, so this
-   * is read rather than derived from volume × tax rate — an estimate that would drift away from
-   * the truth the moment any tax was routed anywhere other than the beneficiary.
-   *
-   * The total is denominated in the QUOTE asset, so it is converted with that asset's own price
-   * and decimals. XAUT is 6 decimals, not 18.
+   * flap's Tax Token Helper kept a cumulative total per token, so this page could show exactly what
+   * one token had paid. Pons credits a **fee escrow keyed by (recipient, asset)**: two tokens
+   * paired against the same stock share one balance, and claiming zeroes it. There is no honest way
+   * to attribute it to a single token, and multiplying volume by the tax rate would be an estimate
+   * dressed as a measurement. What IS real — the claimable balance per stock — is on /rewards.
    */
-  const feesEarned = useMemo(() => {
-    if (!taxInfo || !token) return null
-    const stock = token.quoteTicker ? stockByTicker(token.quoteTicker) : undefined
-    const decimals = stock?.decimals ?? 18
-    const inQuote = Number(taxInfo.totalQuoteSentToMarketing) / 10 ** decimals
-    return { inQuote, usd: quoteUsd !== null ? inQuote * quoteUsd : null }
-  }, [taxInfo, token, quoteUsd])
 
-  const series = useMemo(() => (trades ? priceSeries(trades) : []), [trades])
   const image = broken ? null : (meta?.imageUrl ?? null)
 
   async function copy() {
@@ -224,7 +228,7 @@ export default function TokenDetail() {
               {shortAddr(token.address)} {copied ? <Check size={13} /> : <Copy size={13} />}
             </button>
             <a href={explorerToken(token.address)} target="_blank" rel="noreferrer">
-              BscScan <External size={12} />
+              Blockscout <External size={12} />
             </a>
             {meta?.twitter && (
               <a href={meta.twitter} target="_blank" rel="noreferrer">
@@ -252,11 +256,6 @@ export default function TokenDetail() {
               {change >= 0 ? '▲' : '▼'} {Math.abs(change).toFixed(1)}% 24h
             </span>
           )}
-          {series.length > 0 && (
-            <div className="td-spark">
-              <Sparkline data={series} color={change !== null && change < 0 ? '#f6465d' : '#0ecb81'} fluid />
-            </div>
-          )}
         </div>
       </header>
 
@@ -268,34 +267,38 @@ export default function TokenDetail() {
         <div className="section-head section-head-center">
           <h2>Fees</h2>
           <p>
-            {model === 'bstake'
-              ? `Trading ${BRAND.name} pays a tax which funds everyone staking a bStock.`
+            {model === 'pstake'
+              ? `Trading ${BRAND.name} pays a tax which funds everyone staking a pStock.`
               : 'Trading this token pays a tax which funds its stakers.'}
           </p>
         </div>
-        <div className="grid grid-3">
-          <Stat label="Buy tax" value={taxes ? `${taxes.buyTaxBps / 100}%` : '—'} />
-          <Stat label="Sell tax" value={taxes ? `${taxes.sellTaxBps / 100}%` : '—'} />
+        <div className="grid grid-2">
+          {/*
+            One rate, not a buy/sell pair. Pons charges the creator tax through the curve and the
+            pool hook rather than on transfer, so there is no separate buy and sell figure to show —
+            printing two identical numbers would imply a distinction the contract does not make.
+          */}
           <Stat
-            label="Fees earned"
-            value={feesEarned ? (feesEarned.usd !== null ? usd(feesEarned.usd) : '—') : '—'}
-            sub={
-              feesEarned && token.quoteTicker
-                ? `${fmtAmount(feesEarned.inQuote)} ${token.quoteTicker} all time`
-                : undefined
-            }
+            label="Creator tax"
+            value={feeTerms ? `${feeTerms.creatorTaxBps / 100}%` : '—'}
+            sub={feeTerms ? 'funds stakers' : undefined}
+          />
+          <Stat
+            label="Pons fee"
+            value={feeTerms && feeTerms.hookFeeBps > 0 ? `${feeTerms.hookFeeBps / 100}%` : '—'}
+            sub={feeTerms && feeTerms.hookFeeBps > 0 ? 'taken by the protocol' : undefined}
           />
         </div>
       </section>
 
       {/* ---------------------------------- staking ----------------------------------
           Two genuinely different products, not two skins on one. See `lib/staking.ts`. */}
-      {model === 'bstake' ? (
+      {model === 'pstake' ? (
         <section className="section">
           <div className="section-head section-head-center">
             <h2>Staking</h2>
             <p>
-              Stake any bStock to earn from {BRAND.name}'s trading fees. {BRAND.name} itself is not
+              Stake any pStock to earn from {BRAND.name}'s trading fees. {BRAND.name} itself is not
               staked.
             </p>
           </div>
@@ -310,7 +313,7 @@ export default function TokenDetail() {
             <table>
               <thead>
                 <tr>
-                  <th>bStock</th>
+                  <th>pStock</th>
                   <th className="right">Price</th>
                   <th className="right">Total staked</th>
                   <th className="right">Stakers</th>
@@ -352,9 +355,18 @@ export default function TokenDetail() {
             </p>
           </div>
           <div className="grid grid-3">
-            <Stat label="Total staked" value={`0 ${token.symbol}`} />
-            <Stat label="Stakers" value="0" />
-            <Stat label="Rewards distributed" value={usd(0)} />
+            <Stat
+              label="Total staked"
+              value={`${fmtAmount(Number(staking.totalStaked) / 10 ** token.decimals)} ${token.symbol}`}
+            />
+            <Stat
+              label="Value staked"
+              value={
+                priceUsd !== null
+                  ? usd((Number(staking.totalStaked) / 10 ** token.decimals) * priceUsd, { compact: true })
+                  : '—'
+              }
+            />
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
             <Link className="btn btn-primary" to="/stake">
@@ -364,52 +376,6 @@ export default function TokenDetail() {
         </section>
       )}
 
-      {/* ---------------------------------- trades ---------------------------------- */}
-      <section className="section">
-        <div className="section-head section-head-center">
-          <h2>Recent trades</h2>
-        </div>
-        {trades === null ? (
-          <div className="card empty">
-            <div className="spinner" />
-          </div>
-        ) : trades.length === 0 ? (
-          <Empty title="No trades yet" body="Trades appear here as they happen on chain." />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th className="right">{token.symbol}</th>
-                  <th className="right">{token.quoteTicker ?? 'BNB'}</th>
-                  <th className="right">Trader</th>
-                  <th className="right">Tx</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trades.map((t, i) => (
-                  <tr key={`${t.txHash}-${i}`}>
-                    <td>
-                      <span className={`badge ${t.kind === 'buy' ? 'badge-up' : 'badge-muted'}`}>
-                        {t.kind === 'buy' ? 'Buy' : 'Sell'}
-                      </span>
-                    </td>
-                    <td className="right mono">{fmtAmount(t.amount)}</td>
-                    <td className="right mono">{fmtAmount(t.quoteAmount)}</td>
-                    <td className="right mono">{shortAddr(t.trader)}</td>
-                    <td className="right">
-                      <a className="btn btn-ghost" href={explorerTx(t.txHash)} target="_blank" rel="noreferrer">
-                        <External size={13} />
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
   )
 }

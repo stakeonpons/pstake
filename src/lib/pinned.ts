@@ -1,7 +1,7 @@
 /**
- * The bStake token's own listing.
+ * The pStake token's own listing.
  *
- * bStake's token is the first launched on the platform, so on /tokens it is **always first and
+ * pStake's token is the first launched on the platform, so on /tokens it is **always first and
  * always visible** — search and reward filters skip it rather than hide it, and its card is
  * outlined so it is identifiable at a glance.
  *
@@ -21,7 +21,7 @@ import { BRAND } from '../brand'
  * ⚠ The address is **lowercased before validation**, deliberately. `isAddress` is strict about
  * EIP-55 checksums, so a perfectly valid address copied from a block explorer, a wallet, or a chat
  * message in the wrong case would be rejected — and the failure is silent: no pinned card, no
- * bStake staking model, no error anywhere. Since the whole feature switches on this one string,
+ * pStake staking model, no error anywhere. Since the whole feature switches on this one string,
  * that is far too quiet a way to fail. Lowercasing first accepts any casing, and `getAddress`
  * then returns it properly checksummed.
  *

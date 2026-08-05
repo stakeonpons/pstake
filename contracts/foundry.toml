@@ -9,4 +9,4 @@ remappings = ["@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"]
 via_ir = false
 
 [rpc_endpoints]
-bsc = "https://bsc-rpc.publicnode.com"
+rhc = "https://rpc.mainnet.chain.robinhood.com"

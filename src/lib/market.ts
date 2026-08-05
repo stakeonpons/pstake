@@ -1,17 +1,17 @@
 /**
  * 24h change, volume and token age — the numbers a pool's current state cannot tell you.
  *
- * Everything else on this site is read straight from chain, and price, liquidity and market cap
- * stay that way. But "how much did this move in 24h" needs yesterday's price, and "how old is it"
+ * ⚠ On BNB this module supplied only decoration. Here it also supplies price, liquidity and market
+ * cap, because Pons V2 has no pair contract to read them from — see `MarketExtras`. But "how much did this move in 24h" needs yesterday's price, and "how old is it"
  * needs the launch time — neither is in the pair's current state. Getting them from chain means an
  * archive scan per token per page load, which is not something a browser should do.
  *
- * DexScreener indexes flap.sh (`dexId: "flapsh"`), serves `Access-Control-Allow-Origin: *`, and
- * takes up to 30 addresses per request — so the whole page costs one HTTP call. Anything it does
- * not know renders as a dash.
+ * DexScreener indexes Robinhood Chain (`chainId: "robinhood"`, covering both the Uniswap v3 and v4
+ * pools Pons uses), serves `Access-Control-Allow-Origin: *`, and takes up to 30 addresses per
+ * request — so the whole page costs one HTTP call. Anything it does not know renders as a dash.
  *
  * ⚠⚠ **Read only pairs where our token is the BASE token.** DexScreener reports `priceChange`
- * against the base side, so for a pair like CLIPPY/MSFTB — where flap made the bStock the base —
+ * against the base side, so for a pair where Pons made the pStock the base —
  * `priceChange.h24` describes *MSFTB*, and using it would silently print an unrelated number under
  * our token's name. It is not the inverse either, since both sides move independently in USD, so
  * there is nothing to salvage: no base-side pair means no 24h figure. This is the same failure that
@@ -24,20 +24,41 @@ export type MarketExtras = {
   /** Percent, signed. Null when no pair quotes this token as the base asset. */
   change24h: number | null
   volume24hUsd: number | null
-  /** Pair creation time in ms — the age badge, and the seed for the metadata lookup. */
+  /** Pair creation time in ms — the age badge. */
   createdAtMs: number | null
+  /**
+   * Price in USD, and in the PAIRED ASSET's own units (`priceNative`).
+   *
+   * ⚠⚠ On BNB these came from a pair's reserves and this module only ever supplied decoration.
+   * Robinhood Chain has **no pair contract to read** — Pons V2 graduates into a Uniswap V4
+   * singleton whose price sits in a packed `slot0` behind `extsload` — so price and liquidity are
+   * sourced here too. `priceNative` is the honest analogue of the old `priceQuote`: the token's
+   * price denominated in the stock it is paired against, straight from the indexer that watches
+   * the pool.
+   */
+  priceUsd: number | null
+  priceNative: number | null
+  liquidityUsd: number | null
 }
 
 type DexPair = {
   baseToken?: { address?: string }
   quoteToken?: { address?: string }
   priceChange?: { h24?: number }
+  priceUsd?: string
+  priceNative?: string
   volume?: { h24?: number }
   pairCreatedAt?: number
   liquidity?: { usd?: number }
 }
 
 const ENDPOINT = 'https://api.dexscreener.com/latest/dex/tokens/'
+
+const num = (v: string | undefined): number | null => {
+  if (v === undefined) return null
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
 
 /** DexScreener's documented cap per request. */
 const BATCH = 30
@@ -60,10 +81,10 @@ export async function fetchMarketExtras(
   // Depth of the pair each entry came from, so a later shallower pair cannot overwrite a deeper one.
   const depth: Record<string, number> = {}
   // ⚠⚠ Creation time is tracked SEPARATELY, as the EARLIEST across every pair — not the one from
-  // the deepest pair. A token that graduates off the flap curve gets a NEW PancakeSwap pair, and
+  // the deepest pair. A token that graduates off the Pons curve gets a NEW Uniswap pool, and
   // that pair's creation time is the graduation, not the launch. Taking it would make a graduated
   // token look hours old instead of days, and would point the artwork lookup at the wrong block
-  // entirely, so it silently finds no launch event and the token renders with no image.
+  // entirely.
   const earliest: Record<string, number> = {}
 
   await Promise.all(
@@ -81,7 +102,7 @@ export async function fetchMarketExtras(
 
           // Which side we are on decides what is safe to read. `pairCreatedAt` describes the pair
           // itself, so it is true either way — and it is what makes the artwork lookup possible for
-          // a token flap listed as the quote asset. The price figures are base-side only.
+          // a token pons listed as the quote asset. The price figures are base-side only.
           const key = (isBase ? base : quote) as string
           if (typeof pair.pairCreatedAt === 'number') {
             earliest[key] = Math.min(earliest[key] ?? Infinity, pair.pairCreatedAt)
@@ -91,6 +112,11 @@ export async function fetchMarketExtras(
             change24h: isBase && typeof pair.priceChange?.h24 === 'number' ? pair.priceChange.h24 : null,
             volume24hUsd: isBase && typeof pair.volume?.h24 === 'number' ? pair.volume.h24 : null,
             createdAtMs: null,
+            // Base side only, for the same reason the 24h move is: on a quote-side pair these
+            // describe the OTHER asset. Liquidity is a property of the pair, so it holds either way.
+            priceUsd: isBase ? num(pair.priceUsd) : null,
+            priceNative: isBase ? num(pair.priceNative) : null,
+            liquidityUsd: typeof pair.liquidity?.usd === 'number' ? pair.liquidity.usd : null,
           }
 
           // A token can have several pairs. Keep the deepest, since that is the price the market
@@ -110,7 +136,16 @@ export async function fetchMarketExtras(
   // Apply the earliest creation time over whatever the deepest pair happened to report.
   for (const [key, ms] of Object.entries(earliest)) {
     if (out[key]) out[key].createdAtMs = ms
-    else out[key] = { change24h: null, volume24hUsd: null, createdAtMs: ms }
+    else {
+      out[key] = {
+        change24h: null,
+        volume24hUsd: null,
+        createdAtMs: ms,
+        priceUsd: null,
+        priceNative: null,
+        liquidityUsd: null,
+      }
+    }
   }
 
   return out

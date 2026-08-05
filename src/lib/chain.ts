@@ -1,78 +1,83 @@
 import { createPublicClient, defineChain, fallback, http } from 'viem'
 
 /**
- * BSC RPC endpoints, in preference order.
+ * Robinhood Chain.
  *
- * ⚠ Every Binance dataseed (`bsc-dataseed*.binance.org`, defibit, ninicoin) **refuses
- * `eth_getLogs` outright** — "Request exceeds defined limit" — which makes them useless for the
- * launch scan. drpc / blockpi / ankr / llamarpc were dead when measured on 4 Aug 2026.
+ * ⚠⚠ **This chain makes a block roughly every 100ms — about 861,000 blocks a day — and the public
+ * RPC caps `eth_getLogs` at 2,000 blocks, i.e. about 3.3 minutes of history.** That single fact
+ * decides the architecture of everything that reads history here:
  *
- * These two work and **fail differently**, which is why both are here: publicnode is fast for
- * `getLogs` and flaky on single-transaction reads; nodereal is the reverse. viem's `fallback`
- * rotates on error.
+ *  - A browser cannot reconstruct a token's trade history or find its launch by scanning. On BNB
+ *    that was ~16 calls; here a day of history is 861,000 blocks, and the endpoint refuses ranges
+ *    past 2,000 anyway.
+ *  - So **history comes from an indexer or from DexScreener, never from a browser-side scan.**
+ *    Present state — balances, pool price, fee totals, who a token pays — is still read live from
+ *    contracts, because that costs one call regardless of how old the chain is.
+ *
+ * State is also pruned on the public endpoint, so a historical `eth_call` at an old block fails.
+ * Nothing here does that; anything that starts to will need an archive provider.
  */
-const ARCHIVE_RPC = (import.meta.env.VITE_ARCHIVE_RPC as string | undefined) ?? ''
+const EXTRA_RPC = (import.meta.env.VITE_RHC_RPC as string | undefined) ?? ''
 
 /**
- * ⚠ The archive endpoint carries an API key, so it is read from the environment rather than
- * committed. Without it the app still works — every head-of-chain read goes to publicnode — but
- * historical lookups degrade, which in practice means token artwork stops resolving.
+ * ⚠ `rpc.robinhood.com` does NOT resolve — the working host is `rpc.mainnet.chain.robinhood.com`.
+ * An extra endpoint can be supplied from the environment; it is optional, and without it every
+ * read goes to the public one.
  */
-export const BSC_RPCS = [
-  'https://bsc-rpc.publicnode.com',
-  ...(ARCHIVE_RPC ? [ARCHIVE_RPC] : []),
+export const RHC_RPCS = [
+  'https://rpc.mainnet.chain.robinhood.com',
+  ...(EXTRA_RPC ? [EXTRA_RPC] : []),
 ] as const
 
-export const bsc = defineChain({
-  id: 56,
-  name: 'BNB Smart Chain',
-  nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-  rpcUrls: { default: { http: [...BSC_RPCS] } },
-  blockExplorers: { default: { name: 'BscScan', url: 'https://bscscan.com' } },
+export const rhc = defineChain({
+  id: 4663,
+  name: 'Robinhood Chain',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: [...RHC_RPCS] } },
+  blockExplorers: { default: { name: 'Blockscout', url: 'https://robinhoodchain.blockscout.com' } },
   contracts: {
-    // Standard BSC deployment, used to batch token reads into one call.
-    multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11', blockCreated: 15_921_452 },
+    multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11' },
   },
 })
 
 export const publicClient = createPublicClient({
-  chain: bsc,
-  transport: fallback(BSC_RPCS.map((url) => http(url, { timeout: 12_000 }))),
+  chain: rhc,
+  transport: fallback(RHC_RPCS.map((url) => http(url, { timeout: 12_000 }))),
   batch: { multicall: true },
 })
 
 /**
- * A client for **historical** state — blocks and logs older than the last few hours.
+ * Blockscout's REST API.
  *
- * ⚠ publicnode is not an archive node. It answers `getLogs` near the head happily, then rejects
- * anything older with *"Archive requests require a personal token"* — which reads like a malformed
- * request rather than a missing capability, so it is worth naming. nodereal does serve archive
- * ranges (186 logs returned at ~24h back, measured 5 Aug 2026), so the order here is deliberately
- * the reverse of `publicClient`'s.
+ * Two jobs with no on-chain answer: the **USD price of a tokenized stock** (`exchange_rate` on the
+ * token endpoint) and metadata for assets not launched through Pons. It serves CORS `*`, so the
+ * browser calls it directly.
  *
- * Used to recover a token's launch event — and with it the metadata URI holding its image — long
- * after the launch. Do not point head-of-chain reads at this; `publicClient` is faster for those.
+ * ⚠ This is the price source that replaces Binance. Robinhood's tokenized equities are not listed
+ * on Binance under these tickers, and inventing a mapping to some Binance market would be printing
+ * the price of a different asset.
  */
-export const archiveClient = createPublicClient({
-  chain: bsc,
-  transport: fallback([...BSC_RPCS].reverse().map((url) => http(url, { timeout: 20_000 }))),
-})
+export const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com'
 
-export const CHAIN_ID_HEX = '0x38'
+export const CHAIN_ID_HEX = '0x1237'
 
-/** Params for `wallet_addEthereumChain`, for wallets that do not know BSC yet. */
+/** Params for `wallet_addEthereumChain`, for wallets that do not know Robinhood Chain yet. */
 export const ADD_CHAIN_PARAMS = {
   chainId: CHAIN_ID_HEX,
-  chainName: 'BNB Smart Chain',
-  nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-  rpcUrls: [...BSC_RPCS],
-  blockExplorerUrls: ['https://bscscan.com'],
+  chainName: 'Robinhood Chain',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: [...RHC_RPCS],
+  blockExplorerUrls: [BLOCKSCOUT],
 } as const
 
 export function explorerToken(address: string): string {
-  return `https://bscscan.com/token/${address}`
+  return `${BLOCKSCOUT}/token/${address}`
 }
 
 export function explorerTx(hash: string): string {
-  return `https://bscscan.com/tx/${hash}`
+  return `${BLOCKSCOUT}/tx/${hash}`
+}
+
+export function explorerAddress(address: string): string {
+  return `${BLOCKSCOUT}/address/${address}`
 }

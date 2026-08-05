@@ -20,7 +20,7 @@ export function Change({ value, digits = 2 }: { value: number; digits?: number }
 
 export function StockBadge({ ticker, to = true }: { ticker: string; to?: boolean }) {
   const el = <span className="badge badge-stock">{ticker}</span>
-  return to ? <Link to={`/bstocks?q=${ticker}`}>{el}</Link> : el
+  return to ? <Link to={`/pstocks?q=${ticker}`}>{el}</Link> : el
 }
 
 export function CopyRow({ text }: { text: string }) {

@@ -25,7 +25,7 @@ export default function Stocks() {
     try {
       setQuotes(await fetchQuotes())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reach Binance.')
+      setError(err instanceof Error ? err.message : 'Could not reach Blockscout.')
     } finally {
       setLoading(false)
     }
@@ -56,9 +56,9 @@ export default function Stocks() {
   return (
     <div className="wrap page">
       <div className="page-head page-head-center">
-        <h1>bStocks</h1>
+        <h1>pStocks</h1>
         <p>
-          bStocks are BEP-20 tokens on {BRAND.chain}, each backed 1:1 by the real asset it tracks.
+          pStocks are ERC-20 tokens on {BRAND.chain}, each backed 1:1 by the real asset it tracks.
         </p>
         <p>These are the assets a token can be paired against on {BRAND.launchpad}.</p>
       </div>
@@ -88,13 +88,13 @@ export default function Stocks() {
       )}
 
       {rows.length === 0 ? (
-        <Empty title="No bStocks match" body="Try a ticker like NVDAB, or a company name." />
+        <Empty title="No pStocks match" body="Try a ticker like NVDA, or a company name." />
       ) : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>bStock</th>
+                <th>pStock</th>
                 <th>Sector</th>
                 <th className="right">Price</th>
                 <th className="right">24h</th>
@@ -107,7 +107,7 @@ export default function Stocks() {
                 return (
                   <tr key={s.ticker}>
                     <td>
-                      {/* Links to the verified BEP-20 on BNB Chain. Stocks with no confirmed
+                      {/* Links to the verified ERC-20 on Robinhood Chain. Stocks with no confirmed
                           contract render as plain text rather than a dead or guessed link. */}
                       {s.address ? (
                         <a
@@ -115,7 +115,7 @@ export default function Stocks() {
                           href={explorerToken(s.address)}
                           target="_blank"
                           rel="noreferrer"
-                          title={`View ${s.ticker} on BscScan`}
+                          title={`View ${s.ticker} on Blockscout`}
                         >
                           <span className="tk-glyph mono" style={{ fontSize: 13, fontWeight: 700 }}>
                             {s.underlying.slice(0, 2)}
@@ -148,8 +148,13 @@ export default function Stocks() {
                     <td className="right mono">
                       {quote ? usd(quote.priceUsd) : <span className="muted">—</span>}
                     </td>
+                    {/*
+                      ⚠ The 24h move is genuinely absent for a stock with no on-chain pool:
+                      Blockscout publishes a rate but no change, and DexScreener only knows assets
+                      that trade. A dash says "not known"; a zero would claim it did not move.
+                    */}
                     <td className="right">
-                      {quote ? (
+                      {quote?.change24h != null ? (
                         <span className={`mono ${quote.change24h >= 0 ? 'up' : 'down'}`}>
                           {pct(quote.change24h)}
                         </span>
@@ -158,7 +163,7 @@ export default function Stocks() {
                       )}
                     </td>
                     <td className="right mono">
-                      {quote ? '$' + compact(quote.volumeUsd) : <span className="muted">—</span>}
+                      {quote?.volumeUsd != null ? '$' + compact(quote.volumeUsd) : <span className="muted">—</span>}
                     </td>
                   </tr>
                 )
@@ -176,23 +181,23 @@ export default function Stocks() {
           <div>
             <h2>How it works</h2>
             <p>
-              Each bStock is issued against the underlying asset, bought and held by a regulated
+              Each pStock is issued against the underlying asset, bought and held by a regulated
               custodian. Supply on chain tracks what is in custody one for one, so the token stays
               redeemable and its price tracks the real thing. For equities, dividends and corporate
               actions pass through to holders.
             </p>
             <p>
-              Because it is a plain BEP-20, a bStock also works anywhere else on {BRAND.chain}. Swap
-              it on PancakeSwap, or post it as collateral on lending markets, without unwinding your
+              Because it is a plain ERC-20, a pStock also works anywhere else on {BRAND.chain}. Swap
+              it on Uniswap, or post it as collateral on lending markets, without unwinding your
               position.
             </p>
           </div>
 
           <div>
-            <h2>Why fees settle in bStocks</h2>
+            <h2>Why fees settle in pStocks</h2>
             <p>
               On {BRAND.launchpad}, a token is launched against a quote asset. When that quote asset
-              is a bStock, every trade against the pair generates fees denominated in that stock, so
+              is a pStock, every trade against the pair generates fees denominated in that stock, so
               paying stakers in it is the natural settlement.
             </p>
           </div>

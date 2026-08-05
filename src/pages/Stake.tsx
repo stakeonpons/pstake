@@ -1,27 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { Address } from 'viem'
+import { parseUnits, type Address } from 'viem'
 import { BRAND, LOCK_TIERS } from '../brand'
 import { Arrow, Lock, Mark, Wallet } from '../components/Icons'
 import { Empty, Notice, StockBadge } from '../components/Ui'
 import { useWallet, useWrongChain } from '../lib/wallet'
 import { buildRegistry, type RegistryToken } from '../lib/registry'
 import { PREVIEW_BALANCES, previewOn } from '../lib/preview'
+import { ensureAllowance, poolFor, readPools, sendStake, type Pool } from '../lib/stakingContract'
+import { publicClient } from '../lib/chain'
 import { isStakeable } from '../lib/staking'
-import { fetchBnbUsd, readBalances } from '../lib/flapIndexer'
+import { fetchNativeUsd, readBalances } from '../lib/ponsIndexer'
 import { STOCKS, fetchQuotes, type Quote } from '../lib/stocks'
 import { amount as fmtAmount, usd } from '../lib/format'
 
 /**
  * Two things can be staked here, and they are paid from completely different pots.
  *
- *  - `bstock`  — a bStock. Rewards come from **the bStake token's own fees**, which are used to buy
- *                bStocks and split across everyone staking one.
- *  - `token`   — a token launched through bStake. Rewards come from **that token's own trading
- *                fees**, paid in the single bStock it was paired against.
+ *  - `bstock`  — a pStock. Rewards come from **the pStake token's own fees**, which are used to buy
+ *                pStocks and split across everyone staking one.
+ *  - `token`   — a token launched through pStake. Rewards come from **that token's own trading
+ *                fees**, paid in the single pStock it was paired against.
  *
  * They must not be presented as one pool: the reward source, and therefore the risk, is different.
  */
+type StakeState =
+  | { kind: 'idle' }
+  | { kind: 'approving' }
+  | { kind: 'signing' }
+  | { kind: 'confirming' }
+  | { kind: 'done'; amount: number; symbol: string; days: number }
+  | { kind: 'error'; message: string }
+
 type Holding = {
   kind: 'bstock' | 'token'
   address: Address
@@ -31,7 +41,7 @@ type Holding = {
   balance: bigint
   balanceFloat: number
   priceUsd: number | null
-  /** The bStock a launched token pays out. Null for bStocks, which pay out in bStocks generally. */
+  /** The pStock a launched token pays out. Null for pStocks, which pay out in pStocks generally. */
   reward: string | null
 }
 
@@ -78,7 +88,7 @@ function previewHoldings(listed: RegistryToken[], quotes: Record<string, Quote>)
 }
 
 export default function Stake() {
-  const { connected, address, openPicker } = useWallet()
+  const { connected, address, openPicker, provider } = useWallet()
   const wrongChain = useWrongChain()
   const preview = previewOn()
 
@@ -89,15 +99,16 @@ export default function Stake() {
   const [selected, setSelected] = useState<string | null>(null)
   const [raw, setRaw] = useState('')
   const [days, setDays] = useState(30)
-  const [submitted, setSubmitted] = useState(false)
+  const [pools, setPools] = useState<Pool[]>([])
+  const [stakeState, setStakeState] = useState<StakeState>({ kind: 'idle' })
 
   const load = useCallback(async () => {
     if (!address && !preview) return
     setLoading(true)
     setError(null)
     try {
-      const [bnbUsd, quotes] = await Promise.all([fetchBnbUsd(), fetchQuotes().catch((): Record<string, Quote> => ({}))])
-      const listed = await buildRegistry(bnbUsd, quotes)
+      const [nativeUsd, quotes] = await Promise.all([fetchNativeUsd(), fetchQuotes().catch((): Record<string, Quote> => ({}))])
+      const listed = await buildRegistry(nativeUsd, quotes)
 
       const bstocks = STOCKS.filter((s) => s.address)
       // One balance sweep across both sets, so it is a single batched round trip. Skipped entirely
@@ -125,8 +136,8 @@ export default function Stake() {
             reward: null,
           })),
         ...listed
-          // ⛔ The bStake token is deliberately absent. Its model is the reverse: you stake a
-          // bStock and earn from ITS fees, so offering it here would contradict the product. See
+          // ⛔ The pStake token is deliberately absent. Its model is the reverse: you stake a
+          // pStock and earn from ITS fees, so offering it here would contradict the product. See
           // `lib/staking.ts`.
           .filter((t) => isStakeable(t.address))
           .filter((t) => held(t.address) > 0n)
@@ -143,7 +154,7 @@ export default function Stake() {
           })),
       ]
       // Preview substitutes balances only when there are genuinely none to show, so a wallet that
-      // really does hold a bStock still sees its own position rather than a staged one.
+      // really does hold a pStock still sees its own position rather than a staged one.
       setHoldings(preview && !found.length ? previewHoldings(listed, quotes) : found)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not read your balances.')
@@ -157,6 +168,62 @@ export default function Stake() {
     if (connected || preview) void load()
     else setHoldings(null)
   }, [connected, preview, load])
+
+  useEffect(() => {
+    void readPools().then(setPools)
+  }, [])
+
+  const busy =
+    stakeState.kind === 'approving' || stakeState.kind === 'signing' || stakeState.kind === 'confirming'
+
+  /**
+   * Approves if needed, then stakes.
+   *
+   * ⚠ The approval is awaited to confirmation before the stake is sent. The stake pulls the tokens,
+   * so sending both at once means the second races the first and reverts, which a staker reads as
+   * the site being broken rather than as a sequencing problem.
+   */
+  async function submitStake() {
+    if (!token || !provider || !address || !amt) return
+    const pool = poolFor(pools, token.address)
+    if (!pool) {
+      setStakeState({ kind: 'error', message: 'That asset cannot be staked right now.' })
+      return
+    }
+
+    try {
+      const value = parseUnits(raw.replace(/,/g, '').trim(), token.decimals)
+
+      setStakeState({ kind: 'approving' })
+      const approval = await ensureAllowance(
+        { token: token.address, owner: address as Address, amount: value },
+        provider,
+      )
+      if (approval) await publicClient.waitForTransactionReceipt({ hash: approval })
+
+      setStakeState({ kind: 'signing' })
+      const hash = await sendStake(
+        { poolId: pool.id, amount: value, termDays: days, from: address as Address },
+        provider,
+      )
+
+      setStakeState({ kind: 'confirming' })
+      await publicClient.waitForTransactionReceipt({ hash })
+
+      setStakeState({ kind: 'done', amount: amt, symbol: token.symbol, days })
+      setRaw('')
+      void load()
+    } catch (err) {
+      // A wallet rejection is the common case and is not an error worth alarming anybody about.
+      const message = err instanceof Error ? err.message : String(err)
+      setStakeState({
+        kind: 'error',
+        message: /reject|denied|User denied/i.test(message)
+          ? 'That was cancelled in your wallet, so nothing was signed.'
+          : 'Nothing was signed and nothing left your wallet. Try again in a moment.',
+      })
+    }
+  }
 
   const token = useMemo(
     () => holdings?.find((h) => h.address === selected) ?? holdings?.[0] ?? null,
@@ -210,7 +277,7 @@ export default function Stake() {
         <div className="card empty" style={{ padding: '56px 24px' }}>
           <div className="spinner" />
           <h3 style={{ marginTop: 18 }}>Checking your wallet</h3>
-          <p>Looking for bStocks and {BRAND.name} tokens you can stake.</p>
+          <p>Looking for pStocks and {BRAND.name} tokens you can stake.</p>
         </div>
         <Durations />
       </Shell>
@@ -225,8 +292,8 @@ export default function Stake() {
           body={error ?? 'You do not hold any stakable tokens.'}
           action={
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link className="btn btn-primary" to="/bstocks">
-                Browse bStocks <Arrow />
+              <Link className="btn btn-primary" to="/pstocks">
+                Browse pStocks <Arrow />
               </Link>
               <Link className="btn btn-ghost" to="/tokens">
                 Browse tokens
@@ -245,7 +312,7 @@ export default function Stake() {
         <div className="field">
           {bstocks.length > 0 && (
             <>
-              <div className="holding-group">bStocks</div>
+              <div className="holding-group">pStocks</div>
               <div className="holding-list">
                 {bstocks.map((h) => (
                   <HoldingRow key={h.address} h={h} on={token?.address === h.address} onPick={pick} />
@@ -283,7 +350,7 @@ export default function Stake() {
                   value={raw}
                   onChange={(e) => {
                     setRaw(e.target.value.replace(/[^0-9.,]/g, ''))
-                    setSubmitted(false)
+                    setStakeState({ kind: 'idle' })
                   }}
                   placeholder="0"
                 />
@@ -320,7 +387,7 @@ export default function Stake() {
                     className={`mult mult-duration ${t.days === days ? 'on' : ''}`}
                     onClick={() => {
                       setDays(t.days)
-                      setSubmitted(false)
+                      setStakeState({ kind: 'idle' })
                     }}
                   >
                     <div className="m mono">{t.days}</div>
@@ -339,11 +406,11 @@ export default function Stake() {
                 <span className="k">You earn</span>
                 <span className="v" style={{ fontFamily: 'var(--font)' }}>
                   {token.kind === 'bstock' ? (
-                    'bStocks'
+                    'pStocks'
                   ) : token.reward ? (
                     <StockBadge ticker={token.reward} to={false} />
                   ) : (
-                    'Its paired bStock'
+                    'Its paired pStock'
                   )}
                 </span>
               </div>
@@ -363,18 +430,41 @@ export default function Stake() {
 
             <button
               className="btn btn-primary btn-lg btn-block"
-              disabled={!amt || overBalance}
-              onClick={() => setSubmitted(true)}
+              disabled={!amt || overBalance || busy}
+              onClick={() => void submitStake()}
             >
               <Lock size={17} />
-              {amt ? `Stake ${fmtAmount(amt)} ${token.symbol}` : 'Enter an amount'}
+              {stakeState.kind === 'approving'
+                ? `Approve ${token.symbol} in your wallet…`
+                : stakeState.kind === 'signing'
+                  ? 'Confirm in your wallet…'
+                  : stakeState.kind === 'confirming'
+                    ? 'Locking…'
+                    : amt
+                      ? `Stake ${fmtAmount(amt)} ${token.symbol}`
+                      : 'Enter an amount'}
             </button>
 
-                        {submitted && (
+            {stakeState.kind === 'done' && (
+              <div className="alert alert-block alert-center">
+                <div>
+                  <b>
+                    {fmtAmount(stakeState.amount)} {stakeState.symbol} locked for {stakeState.days}{' '}
+                    {stakeState.days === 1 ? 'day' : 'days'}
+                  </b>
+                  <p>
+                    Rewards accrue from now and can be claimed at any time. Your position is on the{' '}
+                    <Link to="/rewards">Rewards page</Link>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {stakeState.kind === 'error' && (
               <div className="alert alert-block alert-center">
                 <div>
                   <b>Could not submit that stake</b>
-                  <p>Nothing was signed and nothing left your wallet. Try again in a moment.</p>
+                  <p>{stakeState.message}</p>
                 </div>
               </div>
             )}
@@ -389,7 +479,7 @@ export default function Stake() {
   function pick(h: Holding) {
     setSelected(h.address)
     setRaw('')
-    setSubmitted(false)
+    setStakeState({ kind: 'idle' })
   }
 }
 
@@ -416,7 +506,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="wrap page">
       <div className="page-head page-head-center">
         <h1>Stake</h1>
-        <p>Lock a token and start earning bStocks.</p>
+        <p>Lock a token and start earning pStocks.</p>
       </div>      {children}
     </div>
   )

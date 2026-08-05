@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BRAND } from '../brand'
 import { STOCKS, fetchQuotes } from '../lib/stocks'
 import { buildRegistry, enrichWithMeta, type RegistryToken } from '../lib/registry'
-import { fetchBnbUsd } from '../lib/flapIndexer'
+import { fetchNativeUsd } from '../lib/ponsIndexer'
 import { age } from '../lib/market'
 import { explorerToken } from '../lib/chain'
 import { shortAddr, usd } from '../lib/format'
@@ -36,8 +36,9 @@ export default function Tokens() {
     setLoading(true)
     setError(null)
     try {
-      // Both are needed: BNB prices BNB-quoted pairs, the bStock quotes price stock-quoted ones.
-      const [price, quotes] = await Promise.all([fetchBnbUsd(), fetchQuotes().catch(() => ({}))])
+      // Both are needed: the native rate prices anything not paired against a stock, the pStock
+      // quotes price the rest.
+      const [price, quotes] = await Promise.all([fetchNativeUsd(), fetchQuotes().catch(() => ({}))])
       const built = await buildRegistry(price, quotes)
       setRows(built)
 
@@ -49,7 +50,7 @@ export default function Tokens() {
         )
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reach BNB Chain.')
+      setError(err instanceof Error ? err.message : 'Could not reach Robinhood Chain.')
       setRows([])
     } finally {
       setLoading(false)
@@ -65,7 +66,7 @@ export default function Tokens() {
     if (!rows) return []
     const needle = q.trim().toLowerCase()
 
-    // The bStake token is exempt from filtering and sorting: it is the platform's own token, so it
+    // The pStake token is exempt from filtering and sorting: it is the platform's own token, so it
     // leads the grid whatever the visitor has typed or selected. Pulled out first, prepended last.
     const pin = rows.find((t) => t.source === 'pinned')
 
@@ -84,7 +85,7 @@ export default function Tokens() {
         // Pair creation time, not block number: only scanned rows carry a launch event, so the old
         // key sorted every manually added token as equally old.
         if (sort === 'newest') {
-          return (b.createdAtMs ?? Number(b.launch?.blockNumber ?? 0)) - (a.createdAtMs ?? Number(a.launch?.blockNumber ?? 0))
+          return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0)
         }
         return (b[sort] ?? -1) - (a[sort] ?? -1)
       })
@@ -148,7 +149,7 @@ export default function Tokens() {
           body={
             rows?.length
               ? 'Try a different filter, or clear the search.'
-              : 'Tokens launched through bStake appear here.'
+              : 'Tokens launched through pStake appear here.'
           }
           action={
             <Link className="btn btn-primary" to="/launch">
@@ -235,8 +236,8 @@ function TokenCard({ t }: { t: RegistryToken }) {
           {t.source === 'launch' && <span className="tcard-tag tcard-tag-hi">Launched here</span>}
         </div>
 
-        {/* The pinned bStake token is never shown a reward ticker: it is not paired against a
-            bStock, so a badge there would name an asset it has nothing to do with. */}
+        {/* The pinned pStake token is never shown a reward ticker: it is not paired against a
+            pStock, so a badge there would name an asset it has nothing to do with. */}
         {t.reward && !pinned && (
           <div className="tcard-reward">
             <StockBadge ticker={t.reward} to={false} />
@@ -301,7 +302,7 @@ function TokenCard({ t }: { t: RegistryToken }) {
                 web
               </a>
             )}
-            <a href={explorerToken(t.address)} target="_blank" rel="noreferrer" title="BscScan">
+            <a href={explorerToken(t.address)} target="_blank" rel="noreferrer" title="Blockscout">
               <External size={12} />
             </a>
           </div>

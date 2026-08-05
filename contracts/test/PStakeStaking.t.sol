@@ -2,15 +2,17 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {BStakeStaking} from "../src/BStakeStaking.sol";
+import {PStakeStaking} from "../src/PStakeStaking.sol";
 import {MockToken, TaxedToken} from "./mocks/Tokens.sol";
+import {MockPonsEscrow} from "./mocks/Escrow.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract BStakeStakingTest is Test {
-    BStakeStaking internal s;
+contract PStakeStakingTest is Test {
+    PStakeStaking internal s;
+    MockPonsEscrow internal escrow;
     MockToken internal stakeTok; // a launched token
-    MockToken internal nvdab; // an 18-decimal bStock
-    MockToken internal xaut; // a 6-decimal bStock, the decimals trap
+    MockToken internal nvda; // an 18-decimal pStock
+    MockToken internal xaut; // a 6-decimal pStock, the decimals trap
 
     address internal owner = address(0xB0B);
     address internal feeWallet = address(0xFEE);
@@ -18,23 +20,24 @@ contract BStakeStakingTest is Test {
     address internal bob = address(0xB0BB);
     address internal carol = address(0xCAFE);
 
-    uint256 internal launchedPool; // stake the token, earn its bStock
-    uint256 internal bstockPool; // stake a bStock, earn the same bStock
+    uint256 internal launchedPool; // stake the token, earn its pStock
+    uint256 internal pstockPool; // stake a pStock, earn the same pStock
     uint256 internal xautPool;
 
     function setUp() public {
-        s = new BStakeStaking(owner);
+        escrow = new MockPonsEscrow();
+        s = new PStakeStaking(owner, address(escrow));
 
         stakeTok = new MockToken("Launched", "LNCH", 18);
-        nvdab = new MockToken("NVIDIA", "NVDAB", 18);
+        nvda = new MockToken("NVIDIA", "NVDA", 18);
         xaut = new MockToken("Tether Gold", "XAUT", 6);
 
         vm.startPrank(owner);
-        launchedPool = s.createPool(address(stakeTok), address(nvdab));
+        launchedPool = s.createPool(address(stakeTok), address(nvda), 0);
         // ⚠ The configuration that makes balance-based accounting unsafe: stake and reward are the
         // same asset.
-        bstockPool = s.createPool(address(nvdab), address(nvdab));
-        xautPool = s.createPool(address(xaut), address(xaut));
+        pstockPool = s.createPool(address(nvda), address(nvda), 0);
+        xautPool = s.createPool(address(xaut), address(xaut), 0);
         s.setDepositor(feeWallet, true);
         s.setStakingOpen(true);
         vm.stopPrank();
@@ -42,19 +45,19 @@ contract BStakeStakingTest is Test {
         for (uint256 i; i < 3; ++i) {
             address u = [alice, bob, carol][i];
             stakeTok.mint(u, 1_000_000e18);
-            nvdab.mint(u, 1_000_000e18);
+            nvda.mint(u, 1_000_000e18);
             xaut.mint(u, 1_000_000e6);
             vm.startPrank(u);
             stakeTok.approve(address(s), type(uint256).max);
-            nvdab.approve(address(s), type(uint256).max);
+            nvda.approve(address(s), type(uint256).max);
             xaut.approve(address(s), type(uint256).max);
             vm.stopPrank();
         }
 
-        nvdab.mint(feeWallet, 1_000_000e18);
+        nvda.mint(feeWallet, 1_000_000e18);
         xaut.mint(feeWallet, 1_000_000e6);
         vm.startPrank(feeWallet);
-        nvdab.approve(address(s), type(uint256).max);
+        nvda.approve(address(s), type(uint256).max);
         xaut.approve(address(s), type(uint256).max);
         vm.stopPrank();
     }
@@ -97,7 +100,7 @@ contract BStakeStakingTest is Test {
 
     function test_stake_rejectsUnknownTerm() public {
         vm.prank(alice);
-        vm.expectRevert(BStakeStaking.UnknownTerm.selector);
+        vm.expectRevert(PStakeStaking.UnknownTerm.selector);
         s.stake(launchedPool, 1e18, 5);
     }
 
@@ -105,7 +108,7 @@ contract BStakeStakingTest is Test {
         vm.prank(owner);
         s.setStakingOpen(false);
         vm.prank(alice);
-        vm.expectRevert(BStakeStaking.StakingClosed.selector);
+        vm.expectRevert(PStakeStaking.StakingClosed.selector);
         s.stake(launchedPool, 1e18, 30);
     }
 
@@ -126,12 +129,12 @@ contract BStakeStakingTest is Test {
         _stake(alice, launchedPool, 1_000e18, 30);
         _deposit(launchedPool, 900e18);
 
-        uint256 before = nvdab.balanceOf(alice);
+        uint256 before = nvda.balanceOf(alice);
         vm.prank(alice);
         uint256 paid = s.claim(launchedPool, 0);
 
         assertApproxEqAbs(paid, 900e18, DUST);
-        assertApproxEqAbs(nvdab.balanceOf(alice) - before, 900e18, DUST);
+        assertApproxEqAbs(nvda.balanceOf(alice) - before, 900e18, DUST);
         assertEq(s.pending(launchedPool, alice, 0), 0);
     }
 
@@ -180,7 +183,7 @@ contract BStakeStakingTest is Test {
         skip(7 days - 1);
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(BStakeStaking.StillLocked.selector, uint64(block.timestamp + 1))
+            abi.encodeWithSelector(PStakeStaking.StillLocked.selector, uint64(block.timestamp + 1))
         );
         s.withdraw(launchedPool, 0);
     }
@@ -191,7 +194,7 @@ contract BStakeStakingTest is Test {
         skip(7 days);
 
         uint256 stakeBefore = stakeTok.balanceOf(alice);
-        uint256 rewardBefore = nvdab.balanceOf(alice);
+        uint256 rewardBefore = nvda.balanceOf(alice);
 
         vm.prank(alice);
         (uint256 amount, uint256 rewards) = s.withdraw(launchedPool, 0);
@@ -199,7 +202,7 @@ contract BStakeStakingTest is Test {
         assertEq(amount, 1_000e18, "principal is exact, always");
         assertApproxEqAbs(rewards, 70e18, DUST);
         assertEq(stakeTok.balanceOf(alice) - stakeBefore, 1_000e18);
-        assertApproxEqAbs(nvdab.balanceOf(alice) - rewardBefore, 70e18, DUST);
+        assertApproxEqAbs(nvda.balanceOf(alice) - rewardBefore, 70e18, DUST);
     }
 
     function test_withdraw_twiceReverts() public {
@@ -207,7 +210,7 @@ contract BStakeStakingTest is Test {
         skip(1 days);
         vm.startPrank(alice);
         s.withdraw(launchedPool, 0);
-        vm.expectRevert(BStakeStaking.AlreadyWithdrawn.selector);
+        vm.expectRevert(PStakeStaking.AlreadyWithdrawn.selector);
         s.withdraw(launchedPool, 0);
         vm.stopPrank();
     }
@@ -229,40 +232,39 @@ contract BStakeStakingTest is Test {
     /* --------------------------------- the traps --------------------------------- */
 
     /**
-     * ⚠⚠ The configuration that would break balance-based accounting: staking NVDAB to earn NVDAB.
+     * ⚠⚠ The configuration that would break balance-based accounting: staking NVDA to earn NVDA.
      *
      * If rewards were computed from `balanceOf` minus bookkeeping, principal would leak out as
      * rewards here. Alice must be able to withdraw every token she staked, and Bob's principal must
      * still be there afterwards.
      */
     function test_sameAssetPool_principalIsNeverPaidAsReward() public {
-        _stake(alice, bstockPool, 1_000e18, 1);
-        _stake(bob, bstockPool, 1_000e18, 1);
-        _deposit(bstockPool, 100e18);
+        _stake(alice, pstockPool, 1_000e18, 1);
+        _stake(bob, pstockPool, 1_000e18, 1);
+        _deposit(pstockPool, 100e18);
 
-        assertApproxEqAbs(s.pending(bstockPool, alice, 0), 50e18, DUST);
-        assertApproxEqAbs(s.pending(bstockPool, bob, 0), 50e18, DUST);
+        assertApproxEqAbs(s.pending(pstockPool, alice, 0), 50e18, DUST);
+        assertApproxEqAbs(s.pending(pstockPool, bob, 0), 50e18, DUST);
 
         skip(1 days);
 
         vm.prank(alice);
-        (uint256 amount, uint256 rewards) = s.withdraw(bstockPool, 0);
+        (uint256 amount, uint256 rewards) = s.withdraw(pstockPool, 0);
         assertEq(amount, 1_000e18, "principal back in full");
         assertApproxEqAbs(rewards, 50e18, DUST, "and only her share as reward");
 
         // Bob's principal and reward are both still claimable.
         vm.prank(bob);
-        (uint256 bobAmount, uint256 bobRewards) = s.withdraw(bstockPool, 0);
+        (uint256 bobAmount, uint256 bobRewards) = s.withdraw(pstockPool, 0);
         assertEq(bobAmount, 1_000e18);
         assertApproxEqAbs(bobRewards, 50e18, DUST);
 
-        (,, uint256 totalStaked,,) = s.pools(bstockPool);
+        (,, uint256 totalStaked,,,) = s.pools(pstockPool);
         assertEq(totalStaked, 0);
     }
 
     /**
-     * ⚠⚠ Every token bStake launches is taxed, so the amount that arrives is less than the amount
-     * requested. Crediting the requested amount would over-credit stakers and leave the last one
+     * ⚠⚠ A stake asset that takes a cut of transfers delivers less than the amount requested. Crediting the requested amount would over-credit stakers and leave the last one
      * out unable to withdraw.
      */
     function test_taxedToken_creditsWhatArrived() public {
@@ -270,7 +272,7 @@ contract BStakeStakingTest is Test {
         taxed.mint(alice, 1_000e18);
 
         vm.prank(owner);
-        uint256 pool = s.createPool(address(taxed), address(nvdab));
+        uint256 pool = s.createPool(address(taxed), address(nvda), 0);
 
         vm.startPrank(alice);
         taxed.approve(address(s), type(uint256).max);
@@ -304,7 +306,7 @@ contract BStakeStakingTest is Test {
     function test_depositIntoEmptyPool_isQueuedThenPaid() public {
         _deposit(launchedPool, 100e18);
 
-        (,,,, uint256 queued) = s.pools(launchedPool);
+        (,,,, uint256 queued,) = s.pools(launchedPool);
         assertEq(queued, 100e18, "held, not lost");
 
         _stake(alice, launchedPool, 1_000e18, 1);
@@ -313,17 +315,17 @@ contract BStakeStakingTest is Test {
         _deposit(launchedPool, 50e18);
         assertApproxEqAbs(s.pending(launchedPool, alice, 0), 150e18, DUST, "queued amount arrives with it");
 
-        (,,,, uint256 queuedAfter) = s.pools(launchedPool);
+        (,,,, uint256 queuedAfter,) = s.pools(launchedPool);
         assertEq(queuedAfter, 0);
     }
 
     /* --------------------------------- access control --------------------------------- */
 
     function test_onlyDepositorCanFund() public {
-        nvdab.mint(alice, 1e18);
+        nvda.mint(alice, 1e18);
         vm.startPrank(alice);
-        nvdab.approve(address(s), type(uint256).max);
-        vm.expectRevert(BStakeStaking.NotDepositor.selector);
+        nvda.approve(address(s), type(uint256).max);
+        vm.expectRevert(PStakeStaking.NotDepositor.selector);
         s.depositRewards(launchedPool, 1e18);
         vm.stopPrank();
     }
@@ -331,7 +333,7 @@ contract BStakeStakingTest is Test {
     function test_onlyOwnerAdmin() public {
         vm.startPrank(alice);
         vm.expectRevert();
-        s.createPool(address(stakeTok), address(xaut));
+        s.createPool(address(stakeTok), address(xaut), 0);
         vm.expectRevert();
         s.setDepositor(alice, true);
         vm.expectRevert();
@@ -350,8 +352,8 @@ contract BStakeStakingTest is Test {
 
     function test_duplicatePoolRejected() public {
         vm.prank(owner);
-        vm.expectRevert(BStakeStaking.DuplicatePool.selector);
-        s.createPool(address(stakeTok), address(nvdab));
+        vm.expectRevert(PStakeStaking.DuplicatePool.selector);
+        s.createPool(address(stakeTok), address(nvda), 0);
     }
 
     function test_closingStakingDoesNotTrapFunds() public {

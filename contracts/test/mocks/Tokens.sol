@@ -23,8 +23,10 @@ contract MockToken is ERC20 {
 /**
  * @dev A token that takes a cut of every transfer.
  *
- * Every token bStake launches carries a tax, so this is the realistic case rather than an exotic
- * one. It exists to prove the contract credits what ARRIVED, not what was asked for.
+ * Pons charges its creator fee through the curve and the pool hook rather than on transfer, so a
+ * launched token is not itself expected to behave this way. This exists because a pool's assets are
+ * whatever the operator points it at, and it proves the contract credits what ARRIVED rather than
+ * what was asked for.
  */
 contract TaxedToken is ERC20 {
     uint256 public taxBps;

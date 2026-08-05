@@ -16,11 +16,11 @@ import { Empty } from './components/Ui'
 import { ToastProvider } from './lib/toast'
 import { Link } from 'react-router-dom'
 
-/** Tab title per route. Home is the bare brand; everything else is "bStake - Page". */
+/** Tab title per route. Home is the bare brand; everything else is "pStake - Page". */
 const PAGE_TITLES: Record<string, string> = {
   '/tokens': 'Tokens',
   '/stake': 'Stake',
-  '/bstocks': 'bStocks',
+  '/pstocks': 'pStocks',
   '/rewards': 'Rewards',
   '/launch': 'Launch',
   '/docs': 'Docs',
@@ -61,9 +61,11 @@ export default function App() {
           {/* Per-token dashboard. Linked from every card on /tokens. */}
           <Route path="/token/:address" element={<TokenDetail />} />
           <Route path="/stake" element={<Stake />} />
-          <Route path="/bstocks" element={<Stocks />} />
+          <Route path="/pstocks" element={<Stocks />} />
           {/* Old path kept alive so any link already shared still lands. */}
-          <Route path="/stocks" element={<Navigate to="/bstocks" replace />} />
+          {/* Old paths keep working: /bstocks is what this site used on BNB, and links to it exist. */}
+          <Route path="/stocks" element={<Navigate to="/pstocks" replace />} />
+          <Route path="/bstocks" element={<Navigate to="/pstocks" replace />} />
           <Route path="/rewards" element={<Rewards />} />
           <Route path="/launch" element={<Launch />} />
           <Route path="/docs" element={<Docs />} />

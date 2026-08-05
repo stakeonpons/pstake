@@ -8,7 +8,7 @@ import { Mark, Menu, Wallet } from './Icons'
 const LINKS = [
   { to: '/tokens', label: 'Tokens' },
   { to: '/stake', label: 'Stake' },
-  { to: '/bstocks', label: 'bStocks' },
+  { to: '/pstocks', label: 'pStocks' },
   { to: '/rewards', label: 'Rewards' },
   { to: '/launch', label: 'Launch' },
   { to: '/docs', label: 'Docs' },
@@ -73,9 +73,10 @@ export default function Header() {
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
                 >
-                  {/* 20px, not 18: the cube is line-art inside a padded canvas, so it reads
-                      optically smaller than the filled disc it replaces. */}
-                  <img src="/bnb-64.png" width={20} height={20} alt="" className="chain-icon" />
+                  {/* Robinhood Chain's own mark, taken from the chain's explorer. It was still
+                      Binance's cube after the migration, which told a connected wallet it was on
+                      the wrong chain in the one place that exists to say which chain it is on. */}
+                  <img src="/rhc-64.png" width={20} height={20} alt="" className="chain-icon" />
                   <span className="mono">{shortAddr(address!)}</span>
                   <span className={`account-caret ${menuOpen ? 'open' : ''}`}>▾</span>
                 </button>

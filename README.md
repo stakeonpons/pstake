@@ -1,9 +1,9 @@
-# bStake
+# pStake
 
-Staking on BNB Chain, paid out in **bStocks** — tokenized equities, ETFs and gold that trade as
-BEP-20 tokens.
+Staking on **Robinhood Chain**, paid out in **pStocks** — tokenized equities and ETFs that trade as
+ERC-20 tokens.
 
-**Live at [bstake.sh](https://bstake.sh)**
+**Live at [stakeonpons.xyz](https://stakeonpons.xyz)**
 
 ```bash
 npm install
@@ -18,13 +18,13 @@ These are never presented as one, because the source of the money and therefore 
 
 | You stake | Rewards come from | Paid in |
 | --- | --- | --- |
-| A **bStock** | the **bStake token's** own fees | bStocks |
-| A **token launched through bStake** | that **token's own** trading fees | the single bStock it is paired against |
+| A **pStock** | the **pStake token's** own fees | pStocks |
+| A **token launched through pStake** | that **token's own** trading fees | the single pStock it is paired against |
 
-A creator launches on flap.sh against a bStock quote asset. Because the pair is denominated in that
+A creator launches on Pons against a pStock quote asset. Because the pair is denominated in that
 stock, the token's fees are already in it, so paying stakers in it is the natural settlement rather
-than a conversion bolted on afterwards. The fee beneficiary is set **inside the launch
-transaction**, which means a token launched here is wired to its stakers at birth.
+than a conversion bolted on afterwards. The fee recipient is set **inside the launch transaction**,
+which means a token launched here is wired to its stakers at birth.
 
 Longer locks carry more reward weight, from one day to thirty.
 
@@ -34,11 +34,11 @@ Longer locks carry more reward weight, from one day to thirty.
 | --- | --- |
 | `/` | Product explainer, lock durations, FAQ |
 | `/tokens` | The token registry as a card grid, with live chain data |
-| `/token/:address` | Per-token dashboard: market cap, fees, staking, recent trades |
+| `/token/:address` | Per-token dashboard: market cap, fee terms, staking |
 | `/stake` | Pick a holding, choose a lock, stake it |
-| `/bstocks` | The flap quote assets, priced from Binance |
-| `/rewards` | Claimable bStocks |
-| `/launch` | Launch a token paired against a bStock |
+| `/pstocks` | The approved Pons quote assets and their live prices |
+| `/rewards` | Claimable pStocks |
+| `/launch` | Launch a token paired against a pStock |
 | `/docs` | Mechanics, fees, risks |
 
 ## Where the data comes from
@@ -47,15 +47,15 @@ Everything on screen is read live. Nothing is stubbed, and there is no placehold
 this repository.
 
 - **Wallet** — EIP-6963 multi-wallet discovery, chain guard, sign out.
-- **bStock prices, 24h change, volume** — `api.binance.com`, refreshed every 30s.
-- **Token name, symbol, decimals, supply, pair, price, liquidity, market cap** — read from BNB
-  Chain per token. Price and liquidity come from the token's own pair, whether it is quoted in BNB
-  or in a bStock, converted at that asset's live price.
-- **24h change, volume, age** — DexScreener, which indexes flap.sh.
-- **Fees earned per token** — flap's Tax Token Helper, which keeps a cumulative total per token, so
-  this is measured rather than estimated from volume.
-- **Token artwork and socials** — the token's own metadata document, recovered from its launch
-  event. See `src/lib/tokenMeta.ts`.
+- **pStock prices and volume** — Blockscout's `exchange_rate`, plus the icon Robinhood serves for
+  the asset.
+- **pStock 24h change** — DexScreener where a pool exists, otherwise a dash. Blockscout publishes no
+  change field, and "unchanged" and "unknown" are different claims.
+- **Token name, symbol, decimals, supply, pair** — read from Robinhood Chain per token.
+- **Token price, liquidity, market cap, 24h change, volume** — DexScreener.
+- **Token artwork, description and socials** — `logo()` and `description()` on the token itself. Pons
+  stores them on chain at launch, so nothing is pinned and nothing is recovered from an event.
+- **Fee terms and claimable balances** — the Pons factory and its fee escrow.
 
 **A value that cannot be read renders a dash.** Never a zero, never a guess.
 
@@ -72,22 +72,33 @@ the contract needs to know which product a pool belongs to. Lock terms carry wei
 rewards accrue on weight and are claimable during a lock, and principal is returned only after the
 term. There is no early exit, with or without penalty.
 
+The contract collects its own revenue: it can be named as a token's creator-fee recipient, and
+`harvest` — which anybody may call — pulls those fees out of the Pons fee escrow and into the pools.
+No keeper, and no wallet holding stakers' money on the way.
+
 ## Things that are easy to get wrong here
 
 Each of these cost real debugging time:
 
-- **Pair discovery must try both factories, every quote asset, and pick the deepest pair.** A token
-  paired against a bStock has no WBNB pair, and a token that graduates off the flap curve moves to
-  PancakeSwap V2, leaving its flap pair at zero reserves. Returning the first pair that exists
-  reports the successful tokens as dead.
-- **Read quote decimals, never assume 18.** XAUT is 6.
-- **The launch event's topic0 matches around thirty times too much.** Filter on one topic plus at
-  least 448 bytes of data.
-- **A token's launch salt must produce an address ending in `7777`.** The Portal enforces it.
-- **DexScreener's `priceChange` is base-side only.** flap sometimes makes the bStock the base token,
-  and reading that pair's change prints an unrelated asset's move under your token's name.
-- **Locating a block by timestamp needs a bracket that grows.** Extrapolating from an assumed block
-  time and bisecting a fixed window silently returns the wrong block as the gap widens.
+- **⚠⚠ A browser cannot scan this chain's history.** Robinhood Chain makes a block roughly every
+  100ms — about 861,000 a day — and the public RPC caps `eth_getLogs` at **2,000 blocks**, about
+  3.3 minutes of history. History comes from an indexer or from DexScreener, never from a
+  browser-side scan. Present state is still read live from contracts, because that costs one call
+  regardless of how old the chain is.
+- **State is pruned on the public endpoint**, so a historical `eth_call` at an old block fails.
+- **There are two Pons factory generations, and they are not interchangeable.** One pairs only
+  against WETH, which cannot express "a token's fees pay the stakers of the stock it is paired
+  against". Check which one you are reading before trusting an ABI.
+- **A token's fee recipient is not immutable.** It can be moved behind a timelock, so "does this
+  token pay pStake" is read live every time and never cached or presented as a guarantee.
+- **A per-token "fees earned" figure cannot be read on this chain.** The fee escrow is keyed by
+  `(recipient, asset)`, so two tokens paired against the same stock credit one shared balance, and
+  claiming zeroes it. Show the rate and the claimable balance; do not multiply volume by a rate and
+  call the result earnings.
+- **Read quote decimals, never assume 18**, even when every asset currently is.
+- **The quote-asset list is derived, not chosen.** It is exactly what the factory's
+  `approvedPairTokens` returns. A hand-written list was wrong once and nothing in the UI could
+  reveal it.
 - **Addresses are normalised before validation.** `isAddress` enforces the EIP-55 checksum, so a
   valid address in the wrong case would otherwise be rejected as malformed.
 - **Names are UTF-8.** Byte-per-code-point decoding mangles a meaningful share of live token names.
@@ -95,11 +106,11 @@ Each of these cost real debugging time:
 ## Layout
 
 ```
-src/lib/         chain · flapIndexer · registry · registryApi · market · tokenMeta · tax
-                 pinned · staking · stocks · flap · ipfs · eip6963 · wallet · toast · format
+src/lib/         chain · pons · ponsIndexer · fees · registry · registryApi · market
+                 pinned · staking · stakingContract · stocks · eip6963 · wallet · toast · format
 src/pages/       Home · Tokens · TokenDetail · Stake · Stocks · Rewards · Launch · Docs
 src/components/  Header · Footer · Ui · Modal · WalletModal · Icons
-contracts/       BStakeStaking.sol and its tests
+contracts/       PStakeStaking.sol and its tests
 ```
 
 Single `styles.css`. No CSS framework.

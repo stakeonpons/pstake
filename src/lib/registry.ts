@@ -3,20 +3,21 @@
  *
  * ## What makes a token "ours"
  *
- * Creators launch from **their own wallet** — bStake builds the transaction, their wallet signs and
- * pays for it. So the `deployer` in a flap launch event is a different address every time and says
+ * Creators launch from **their own wallet** — pStake builds the transaction, their wallet signs and
+ * pays for it. So the `deployer` in a Pons launch event is a different address every time and says
  * nothing about whether the launch came through this site. Filtering on it cannot work.
  *
  * The durable answer is the **fee beneficiary**, which is nominated inside the launch transaction.
- * A token whose beneficiary is `LAUNCH_POLICY.feeRecipient` pays its creator fees to bStake's
+ * A token whose beneficiary is `LAUNCH_POLICY.creatorFeeRecipient` pays its creator fees to pStake's
  * stakers, and that is precisely what qualifies it — whether it was launched here, or launched on
- * flap and pointed here afterwards. Ownership of the click is irrelevant; the fee route is the
+ * Pons and pointed here afterwards. Ownership of the click is irrelevant; the fee route is the
  * product.
  *
- * ✅ `isOurs()` reads that beneficiary on chain — flap's Tax Token Helper exposes it as
- * `marketingWallet` — so membership is now verifiable rather than asserted. What still needs
- * solving is DISCOVERY: knowing an address is ours is easy, enumerating every token that points at
- * us is not, because it means scanning every flap launch. Until that exists the list comes from:
+ * ✅ `isOurs()` reads that beneficiary on chain — the Pons factory records it as
+ * `creatorFeeRecipient` on the launch — so membership is verifiable rather than asserted. What is
+ * harder here is DISCOVERY: knowing an address is ours is one call, enumerating every token that
+ * points at us means walking every Pons launch, and ⚠ this chain's 2,000-block `getLogs` cap puts
+ * that beyond a browser entirely. So the list comes from:
  *
  *  1. **The shared registry** — the source of truth, served to every visitor. A token reaches it
  *     either by being submitted when its launch confirms, or by being found by the discovery scan;
@@ -30,41 +31,52 @@
 
 import { getAddress, isAddress, type Address } from 'viem'
 import { BRAND } from '../brand'
-import { readToken, scanLaunches, type LaunchEvent, type OnChainToken } from './flapIndexer'
+import { readToken, readTokenArt, type OnChainToken } from './ponsIndexer'
 import { PREVIEW_PINNED_STANDIN, PREVIEW_TOKENS, previewOn } from './preview'
 import { pinnedAddress } from './pinned'
 import { fetchMarketExtras } from './market'
-import { fetchTokenMeta, type TokenMeta } from './tokenMeta'
 import { fetchListed, submitToken } from './registryApi'
-import { readTaxTokenInfo } from './tax'
-import { LAUNCH_POLICY } from './flap'
+import { isOurs } from './fees'
+
+
 import type { Quote } from './stocks'
+
+/**
+ * Artwork and description for a token.
+ *
+ * Defined here rather than in its own module now that it is a plain contract read — there is no
+ * IPFS document, no gateway fallback and no launch-event recovery left to justify one.
+ */
+export type TokenMeta = {
+  imageUrl: string | null
+  description: string | null
+  twitter: string | null
+  telegram: string | null
+  website: string | null
+}
+
 
 export const MANUAL_STORAGE_NOTE =
   'Kept in this browser as a fallback. The shared registry is what other visitors see.'
 
-const KEY = 'bstake.manual-tokens.v1'
-const LAUNCHED_KEY = 'bstake.launched-here.v1'
+const KEY = 'pstake.manual-tokens.v1'
+const LAUNCHED_KEY = 'pstake.launched-here.v1'
 
 /**
- * Whether a token's creator fees are routed to bStake — the real membership test.
+ * Whether a token's creator fees are routed to pStake — the real membership test.
  *
- * ✅ Implemented 5 Aug 2026. flap's Tax Token Helper reports each token's `marketingWallet`, which
- * IS the beneficiary nominated at launch, so membership is a direct on-chain comparison against
- * `LAUNCH_POLICY.feeRecipient`. Confirmed by reading a live token back and matching it to the
- * beneficiary in its own launch calldata.
+ * Implemented in `fees.ts` and re-exported here so callers are unchanged: it reads
+ * `creatorFeeRecipient` off the Pons launch record and compares it with
+ * `LAUNCH_POLICY.creatorFeeRecipient`.
  *
- * This is stronger than a list: it holds for a token launched here, a token launched on flap and
- * pointed here afterwards, and it cannot be faked by adding an address to `localStorage`.
+ * Stronger than a list: it holds for a token launched here and for one launched on Pons directly
+ * that points its fees here, and it cannot be faked by writing to `localStorage`.
  *
- * Still returns null when the helper does not recognise the token — "cannot determine" is not the
- * same as "no", and the two must not collapse into one another.
+ * ⚠⚠ **Read live, never cached.** This can be changed after launch — the factory has
+ * `executeCreatorFeeRecipientChange` behind a timelock — so a stored "yes" would eventually be a
+ * claim the chain no longer supports. Null still means "cannot determine", never "no".
  */
-export async function isOurs(token: Address): Promise<boolean | null> {
-  const info = await readTaxTokenInfo(token)
-  if (!info) return null
-  return info.marketingWallet.toLowerCase() === LAUNCH_POLICY.feeRecipient.toLowerCase()
-}
+export { isOurs }
 
 export type LaunchRecord = {
   address: Address
@@ -84,12 +96,12 @@ export function loadLaunched(): LaunchRecord[] {
 }
 
 /**
- * Records a token launched through bStake, the moment its transaction confirms.
+ * Records a token launched through pStake, the moment its transaction confirms.
  *
  * Writes to **both** places, on purpose:
  *  - the shared registry, so every visitor sees the token. The server re-verifies the fee route
  *    against the chain, so this is a submission, not an assertion — and it needs no signature,
- *    because a token that does not pay bStake is rejected however it was submitted.
+ *    because a token that does not pay pStake is rejected however it was submitted.
  *  - `localStorage`, so the launcher still sees their own token if the API is briefly unreachable.
  *
  * Never throws: a launch that confirmed on chain must not appear to have failed because a listing
@@ -132,7 +144,7 @@ export async function recordLaunch(rec: { address: string; reward: string; txHas
 
 export type ManualEntry = {
   address: Address
-  /** bStock ticker this token pays out in. Not derivable on chain — the admin states it. */
+  /** pStock ticker this token pays out in. Not derivable on chain — the admin states it. */
   reward: string
   /** Optional override when the on-chain name is unhelpful. */
   note?: string
@@ -142,16 +154,15 @@ export type ManualEntry = {
 export type RegistryToken = OnChainToken & {
   /**
    * How this token got here.
-   * - `launch`  — launched through bStake (recorded at confirmation)
+   * - `launch`  — launched through pStake (recorded at confirmation)
    * - `manual`  — added by an admin
    * - `preview` — staged by `?preview=1`; real token, real chain reads, not a real listing
-   * - `pinned`  — the bStake token itself; always listed, always first
+   * - `pinned`  — the pStake token itself; always listed, always first
    * - `shared`  — from the registry API, its fee route verified on chain and visible to everyone
    */
   source: 'launch' | 'manual' | 'preview' | 'pinned' | 'shared'
   reward: string | null
   note?: string
-  launch?: LaunchEvent
   priceUsd: number | null
   liquidityUsd: number | null
   mcapUsd: number | null
@@ -159,7 +170,7 @@ export type RegistryToken = OnChainToken & {
   change24h: number | null
   volume24hUsd: number | null
   createdAtMs: number | null
-  /** Artwork and socials, filled in a second pass — see `enrichWithMeta`. */
+  /** Artwork and description, read straight off the token — see `enrichWithMeta`. */
   meta?: TokenMeta
 }
 
@@ -198,10 +209,10 @@ export function removeManual(address: string) {
 
 /* ---------------------------------- assembly ---------------------------------- */
 
-function withUsd(t: OnChainToken, bnbUsd: number | null, quotes: Record<string, Quote>) {
-  // The pair may be quoted in BNB or in a bStock, so the USD conversion uses whichever asset the
+function withUsd(t: OnChainToken, nativeUsd: number | null, quotes: Record<string, Quote>) {
+  // The pair may be quoted in BNB or in a pStock, so the USD conversion uses whichever asset the
   // token actually trades against.
-  const quoteUsd = t.quoteTicker ? (quotes[t.quoteTicker]?.priceUsd ?? null) : bnbUsd
+  const quoteUsd = t.quoteTicker ? (quotes[t.quoteTicker]?.priceUsd ?? null) : nativeUsd
 
   const priceUsd = t.priceQuote !== null && quoteUsd !== null ? t.priceQuote * quoteUsd : null
   const liquidityUsd = t.liquidityQuote !== null && quoteUsd !== null ? t.liquidityQuote * quoteUsd : null
@@ -225,7 +236,7 @@ function withUsd(t: OnChainToken, bnbUsd: number | null, quotes: Record<string, 
  * than poisoning the whole list, because one dead contract should not empty the page.
  */
 export async function buildRegistry(
-  bnbUsd: number | null,
+  nativeUsd: number | null,
   quotes: Record<string, Quote>,
 ): Promise<RegistryToken[]> {
   const manual = loadManual()
@@ -237,13 +248,18 @@ export async function buildRegistry(
   // unreachable — `null` means exactly that, and is not the same as "there are none".
   const shared = await fetchListed()
 
-  // ⛔ Never scan by the CONNECTED wallet. A token someone launched on flap outside bStake does
-  // not route its creator fees here, so bStake has no fee stream to pay rewards from and staking it
-  // would earn exactly nothing. Membership is "fees flow to bStake", not "this wallet deployed it".
+  // ⛔ Never scan by the CONNECTED wallet. A token someone launched on pons outside pStake does
+  // not route its creator fees here, so pStake has no fee stream to pay rewards from and staking it
+  // would earn exactly nothing. Membership is "fees flow to pStake", not "this wallet deployed it".
   // The only deployer that qualifies is a custodial launcher wallet, if this deployment uses one.
-  const scanned = BRAND.launcherWallets.length
-    ? await scanLaunches({ deployers: BRAND.launcherWallets })
-    : []
+  /**
+   * ⛔ There is no browser-side launch scan on Robinhood Chain.
+   *
+   * The BNB build swept the launch topic for `BRAND.launcherWallets`. Here the public RPC caps
+   * `eth_getLogs` at 2,000 blocks — about 3.3 minutes at ~100ms per block — so a sweep would cover
+   * a rounding error of chain history and silently report almost nothing. Listings come from the
+   * shared registry, from admin adds, and from launches recorded at confirmation.
+   */
 
   // Precedence: a token recorded as launched here wins over a scan hit, which wins over a manual
   // add — so the same token never appears twice with a weaker label.
@@ -257,7 +273,7 @@ export async function buildRegistry(
 
   const jobs: Promise<RegistryToken | null>[] = []
 
-  // The bStake token is listed by identity, not by how it got here — it is the platform's own and
+  // The pStake token is listed by identity, not by how it got here — it is the platform's own and
   // is always present. Taken first so nothing else can claim its address with a weaker source.
   //
   // With no address configured, `?preview=1` substitutes a stand-in contract purely so the card can
@@ -268,10 +284,10 @@ export async function buildRegistry(
       readToken(pin)
         .then((t): RegistryToken => ({
           ...t,
-          ...withUsd(t, bnbUsd, quotes),
+          ...withUsd(t, nativeUsd, quotes),
           source: 'pinned',
-          // ⛔ Deliberately null, now and after `tokenCa` is set. The bStake token is not paired
-          // against a bStock, so whatever quote asset its pair happens to use must never be
+          // ⛔ Deliberately null, now and after `tokenCa` is set. The pStake token is not paired
+          // against a pStock, so whatever quote asset its pair happens to use must never be
           // presented as a reward ticker on its card.
           reward: null,
           name: BRAND.pinned.name,
@@ -282,9 +298,9 @@ export async function buildRegistry(
     )
   }
 
-  // ⚠⚠ AFTER the pinned block, never before. The bStake token routes its fees to bStake, so it
+  // ⚠⚠ AFTER the pinned block, never before. The pStake token routes its fees to pStake, so it
   // qualifies for the shared registry too and would be claimed here first — losing its pinned
-  // card, losing the bStock staking model, and gaining a reward badge it must never show. `take()`
+  // card, losing the pStock staking model, and gaining a reward badge it must never show. `take()`
   // is first-come, so this ordering is the guard.
   for (const entry of shared ?? []) {
     if (!take(entry.address)) continue
@@ -292,7 +308,7 @@ export async function buildRegistry(
       readToken(entry.address)
         .then((t): RegistryToken => ({
           ...t,
-          ...withUsd(t, bnbUsd, quotes),
+          ...withUsd(t, nativeUsd, quotes),
           source: 'shared',
           reward: entry.reward ?? t.quoteTicker,
         }))
@@ -304,32 +320,17 @@ export async function buildRegistry(
     if (!take(rec.address)) continue
     jobs.push(
       readToken(rec.address)
-        .then((t): RegistryToken => ({ ...t, ...withUsd(t, bnbUsd, quotes), source: 'launch', reward: rec.reward || t.quoteTicker }))
+        .then((t): RegistryToken => ({ ...t, ...withUsd(t, nativeUsd, quotes), source: 'launch', reward: rec.reward || t.quoteTicker }))
         .catch(() => null),
     )
   }
 
-  for (const l of scanned) {
-    if (!take(l.token)) continue
-    const m = manual.find((x) => x.address.toLowerCase() === l.token.toLowerCase())
-    jobs.push(
-      readToken(l.token)
-        .then((t): RegistryToken => ({
-          ...t,
-          ...withUsd(t, bnbUsd, quotes),
-          source: 'launch',
-          reward: m?.reward ?? t.quoteTicker,
-          launch: l,
-        }))
-        .catch(() => null),
-    )
-  }
 
   for (const m of manual) {
     if (!take(m.address)) continue
     jobs.push(
       readToken(m.address)
-        .then((t): RegistryToken => ({ ...t, ...withUsd(t, bnbUsd, quotes), source: 'manual', reward: m.reward, note: m.note }))
+        .then((t): RegistryToken => ({ ...t, ...withUsd(t, nativeUsd, quotes), source: 'manual', reward: m.reward, note: m.note }))
         .catch(() => null),
     )
   }
@@ -342,7 +343,7 @@ export async function buildRegistry(
       if (!take(p.address)) continue
       jobs.push(
         readToken(p.address)
-          .then((t): RegistryToken => ({ ...t, ...withUsd(t, bnbUsd, quotes), source: 'preview', reward: p.reward }))
+          .then((t): RegistryToken => ({ ...t, ...withUsd(t, nativeUsd, quotes), source: 'preview', reward: p.reward }))
           .catch(() => null),
       )
     }
@@ -357,14 +358,15 @@ export async function buildRegistry(
 }
 
 /**
- * Second pass: token artwork and socials.
+ * Fills in artwork and description for the rows already on screen.
  *
- * Separate from `buildRegistry` on purpose. Each lookup is a timestamp binary search plus a log
- * scan plus an HTTP fetch — around 16 RPC calls and ~650ms per token — so making the grid wait for
- * it would leave the page blank for seconds. Cards render immediately with a symbol monogram and
- * swap in artwork as it arrives.
+ * ⭐ One contract call per token. Pons stores `logo` and `description` as **plain strings on the
+ * token itself**, set at launch — so this is a direct read that works forever.
  *
- * Results are cached for a month in `localStorage`, so this is a first-visit cost only.
+ * The BNB build needed roughly 16 RPC calls per token for the same thing: DexScreener for a
+ * timestamp, a binary search to turn that timestamp into a block, a log scan around it to recover
+ * the launch event, then an IPFS fetch for the document it pointed at. Every one of those steps
+ * could fail, and when one did the token simply rendered with no image.
  */
 export async function enrichWithMeta(
   rows: RegistryToken[],
@@ -373,8 +375,16 @@ export async function enrichWithMeta(
   await Promise.all(
     rows.map(async (r) => {
       if (r.meta) return
-      const meta = await fetchTokenMeta(r.address, r.createdAtMs)
-      if (meta.imageUrl || meta.twitter || meta.telegram || meta.website) onEach(r.address, meta)
+      const art = await readTokenArt(r.address).catch(() => null)
+      if (art?.logo || art?.description) {
+        onEach(r.address, {
+          imageUrl: art.logo,
+          description: art.description,
+          twitter: null,
+          telegram: null,
+          website: null,
+        })
+      }
     }),
   )
 }

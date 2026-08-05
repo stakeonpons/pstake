@@ -12,7 +12,7 @@ export default function Footer() {
               <Mark size={26} />
               <span className="yellow">{BRAND.name}</span>
             </Link>
-            <p>Stake bStocks on Binance Smart Chain.</p>
+            <p>Stake pStocks on Robinhood Chain.</p>
           </div>
 
           <div className="footer-col">
@@ -20,7 +20,7 @@ export default function Footer() {
             <Link to="/tokens">Tokens</Link>
             <Link to="/stake">Stake</Link>
             <Link to="/rewards">Rewards</Link>
-            <Link to="/bstocks">bStocks</Link>
+            <Link to="/pstocks">pStocks</Link>
           </div>
 
           <div className="footer-col">
@@ -30,7 +30,7 @@ export default function Footer() {
               {BRAND.launchpad} ↗
             </a>
             <a href="https://www.bnbchain.org" target="_blank" rel="noreferrer">
-              BNB Chain ↗
+              Robinhood Chain ↗
             </a>
           </div>
 
