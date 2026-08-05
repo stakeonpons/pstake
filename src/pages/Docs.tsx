@@ -1,10 +1,24 @@
 import { Link } from 'react-router-dom'
 import { BRAND, LOCK_TIERS } from '../brand'
 
+/**
+ * ⚠ Copy rules for this page, and they are not stylistic preferences:
+ *
+ *  - Nothing here describes any part of the product as forthcoming. Present tense throughout.
+ *  - No emojis, no hashtags, no double hyphens.
+ *  - No fee-recipient address for a creator to copy. Launching through bStake sets the fee route
+ *    inside the launch transaction, so there is nothing to configure by hand, and an address
+ *    printed here would be one somebody could get permanently wrong.
+ *
+ * ⚠ Accuracy note: flap PUSHES creator fees. They accumulate in the token's own tax processor and
+ * are dispatched to the fee route when trading triggers it. An earlier version of this page said
+ * they were claimed on a schedule, which was wrong.
+ */
+
 const TOC = [
   ['overview', 'Overview'],
   ['bstocks', 'What a bStock is'],
-  ['pools', 'How a pool works'],
+  ['tracks', 'The two reward tracks'],
   ['locking', 'Locking'],
   ['rewards', 'How rewards are calculated'],
   ['creators', 'For creators'],
@@ -32,49 +46,73 @@ export default function Docs() {
         <article className="doc">
           <h2 id="overview">Overview</h2>
           <p>
-            {BRAND.name} is a staking layer for tokens launched on {BRAND.launchpad}, the token
-            launchpad on {BRAND.chain}. Holders lock a token for a fixed period; in exchange they
-            receive a share of the creator fees that token generates while they are locked.
+            {BRAND.name} is a staking layer built on {BRAND.launchpad}, the token launchpad on{' '}
+            {BRAND.chain}. You lock an asset for a fixed period, and in exchange you receive a share
+            of the trading fees a token generates while you are locked.
           </p>
           <p>
-            The part that makes it different from every other staking site: the payout is not the
-            token you staked, and it is not a chain's native coin. It is a <b>bStock</b>, a tokenized
-            US equity. You lock a volatile meme and you are paid in NVIDIA, Tesla or Microsoft.
+            What makes it different from other staking sites is the payout. It is not the token you
+            staked, and it is not a chain's native coin. It is a <b>bStock</b>, a tokenized US
+            equity. Your share of trading volume arrives as NVIDIA, Tesla or Microsoft.
           </p>
 
           <h2 id="bstocks">What a bStock is</h2>
           <p>
             A bStock is a BEP-20 token on {BRAND.chain} that represents one real share, held 1:1 by a
-            regulated custodian. It gives full economic exposure to the underlying listing,
-            including price, dividends and corporate actions, and trades continuously rather than
-            only during US market hours.
+            regulated custodian. It gives full economic exposure to the underlying listing, including
+            price, dividends and corporate actions, and it trades continuously rather than only
+            during US market hours.
           </p>
           <p>
             Tickers follow the underlying with a <code>B</code> suffix: NVIDIA is <code>NVDAB</code>,
-            Tesla is <code>TSLAB</code>, Microsoft is <code>MSFTB</code>. Because a bStock is a normal
-            BEP-20, once claimed you can hold it, swap it on PancakeSwap, or post it as collateral on
-            lending markets without touching your stake.
+            Tesla is <code>TSLAB</code>, Microsoft is <code>MSFTB</code>. Not all of them are
+            equities: <code>XAUT</code> is gold, and <code>SPYB</code> and <code>QQQB</code> are
+            index funds.
+          </p>
+          <p>
+            Because a bStock is an ordinary BEP-20, once claimed you can hold it, swap it on
+            PancakeSwap, or post it as collateral without touching your stake. The full list, with
+            live prices, is on the <Link to="/bstocks">bStocks page</Link>.
           </p>
 
-          <h2 id="pools">How a pool works</h2>
+          <h2 id="tracks">The two reward tracks</h2>
           <p>
-            On {BRAND.launchpad}, every token is launched against a <b>quote asset</b>, which is the
-            asset it trades against. When a creator picks a bStock as the quote asset, the fees that token
-            generates are denominated in that stock. That is the mechanism {BRAND.name} sits on top of.
+            There are two ways to earn here. They are funded from different pots and are never mixed,
+            because the source of the money, and therefore the risk, is different in each.
+          </p>
+
+          <h3>Stake a token launched through {BRAND.name}</h3>
+          <p>
+            Every token launched here is paired against a bStock. Because the pair is denominated in
+            that stock, the fees the token generates are already in it, so paying its stakers in that
+            stock is the natural settlement rather than a conversion bolted on afterwards.
           </p>
           <ol>
-            <li>A creator launches a token against a bStock quote asset.</li>
+            <li>A creator launches a token against a bStock of their choosing.</li>
             <li>
-              They route the token's creator-fee share to the {BRAND.name} fee wallet. Creator fees on{' '}
-              {BRAND.launchpad} accrue to the token and are <em>claimed</em>, not pushed, so we claim
-              on a schedule.
+              The fee route is written into the launch transaction itself, so the token is wired to
+              its stakers from the moment it exists.
             </li>
             <li>
-              Everything claimed for that token, minus the protocol cut, goes into that pool's reward
-              pot. Pots never mix, so a pool only ever pays out its own stock.
+              Trading the token collects a tax. That tax accrues in the token's own processor and is
+              paid out to the fee route, denominated in the bStock the token is paired against.
             </li>
-            <li>The pot is split across everyone with an open lock, by weight.</li>
+            <li>
+              Everything a token generates goes to that token's own pool. Pools never mix, so a pool
+              only ever pays out its own stock.
+            </li>
           </ol>
+
+          <h3>Stake a bStock</h3>
+          <p>
+            The second track is funded by the {BRAND.name} token itself. You stake any bStock, and you
+            earn from the fees the {BRAND.name} token generates. The {BRAND.name} token is not staked:
+            holding bStocks is what earns from it.
+          </p>
+          <p>
+            This is why the two tracks stay separate. One is funded by a single token's own volume and
+            pays in one stock. The other is funded by {BRAND.name}'s volume and pays across bStocks.
+          </p>
 
           <h2 id="locking">Locking</h2>
           <p>
@@ -97,8 +135,10 @@ export default function Docs() {
             rather than from new supply.
           </p>
           <p>
-            Locks cannot be broken early. Your tokens become withdrawable the moment the lock expires,
-            and rewards already accrued stay claimable indefinitely; expiry does not forfeit anything.
+            Locks cannot be broken early, and there is no exit penalty, because a penalty is an early
+            exit with extra steps and the multiplier only means something if the commitment is real.
+            Your tokens become withdrawable the moment the lock expires. Rewards already accrued stay
+            claimable throughout, including during the lock, and expiry forfeits nothing.
           </p>
 
           <h2 id="rewards">How rewards are calculated</h2>
@@ -109,26 +149,20 @@ export default function Docs() {
             <code>your share = your weight ÷ total pool weight</code>
           </p>
           <p>
-            That share of the claimed fees is used to acquire the pool's bStock, credited to you as a
-            fractional share balance. Rewards accrue continuously and are claimed on demand, so there
-            is no epoch to wait for and nothing expires.
+            Rewards accrue continuously and are claimed on demand, so there is no epoch to wait for
+            and nothing expires. Only positions open at the moment fees arrive share in them, so a
+            stake opened later never dilutes anyone retroactively.
           </p>
           <p>
             Rewards are a description of what trading actually did, never a promise about what comes
             next. If a token stops trading, its rewards stop with it.
           </p>
 
-          {/* ⛔ Do not put a fee-recipient address here for creators to copy.
-              This block used to print `BRAND.feeWallet` next to "set your creator-fee recipient
-              to:" — and that value is the zero address, so anyone following it would have burned
-              their fee stream permanently. The instruction is obsolete regardless: launching
-              through bStake sets the beneficiary inside the launch transaction, so there is
-              nothing for a creator to copy or configure. See LAUNCH_POLICY in lib/flap.ts. */}
           <h2 id="creators">For creators</h2>
           <p>
             Anyone can plug a token in. Launch through {BRAND.name} against a bStock quote asset and
-            the fee route is set inside the launch transaction itself, so there is no address to
-            copy and nothing to configure afterwards. The full walkthrough is on the{' '}
+            the fee route is set inside the launch transaction itself, so there is no address to copy
+            and nothing to configure afterwards. The full walkthrough is on the{' '}
             <Link to="/launch">Launch page</Link>.
           </p>
 
@@ -142,7 +176,11 @@ export default function Docs() {
           <h2 id="fees">Fees</h2>
           <ul>
             <li>
-              <b>Protocol cut:</b> {BRAND.protocolFeeBps / 100}% of claimed creator fees, taken before
+              <b>Trading tax:</b> a token launched here carries a 2% buy tax and a 2% sell tax. That
+              tax is the entire reward pot, and it is what funds the people staking the token.
+            </li>
+            <li>
+              <b>Protocol cut:</b> {BRAND.protocolFeeBps / 100}% of collected fees, taken before
               distribution.
             </li>
             <li>
@@ -158,11 +196,11 @@ export default function Docs() {
           <p>Read this part.</p>
           <ul>
             <li>
-              <b>Rewards can be zero.</b> They are entirely a function of trading volume. A pool with no
-              volume pays nothing, however long you lock.
+              <b>Rewards can be zero.</b> They are entirely a function of trading volume. A pool with
+              no volume pays nothing, however long you lock.
             </li>
             <li>
-              <b>Locks are irreversible.</b> If the token you staked falls 80% during a 30-day lock,
+              <b>Locks are irreversible.</b> If the token you staked falls 80% during a 30 day lock,
               you cannot exit. Size accordingly.
             </li>
             <li>
@@ -170,8 +208,12 @@ export default function Docs() {
               registered ownership or voting rights, and you take on custody and issuer risk.
             </li>
             <li>
-              <b>Smart-contract risk.</b> Staking contracts hold your tokens for the duration of the
+              <b>Smart contract risk.</b> Staking contracts hold your tokens for the duration of the
               lock.
+            </li>
+            <li>
+              <b>A token's settings are permanent.</b> The tax rates and the fee route of a launched
+              token are fixed when it is created, and nobody can change them afterwards.
             </li>
             <li>
               <b>Jurisdiction.</b> Tokenized equities are not available everywhere. Check your own
@@ -179,8 +221,8 @@ export default function Docs() {
             </li>
           </ul>
           <p>
-            None of this is investment advice. {BRAND.name} is not affiliated with Binance, BNB Chain or{' '}
-            {BRAND.launchpad}.
+            None of this is investment advice. {BRAND.name} is not affiliated with Binance, BNB Chain
+            or {BRAND.launchpad}.
           </p>
         </article>
       </div>
