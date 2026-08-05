@@ -9,7 +9,7 @@ export const BRAND = {
   domain: 'bstake.sh',
   twitter: 'https://x.com/bstakedotsh',
   /** Set this and the footer's GitHub entry becomes a live link; empty renders it as plain text. */
-  github: 'https://github.com',
+  github: 'https://github.com/bstakedotsh/bstake',
   chain: 'BNB Chain',
   chainId: 56,
   launchpad: 'flap.sh',
