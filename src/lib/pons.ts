@@ -22,8 +22,19 @@ import { encodeFunctionData, parseAbi, type Address, type Hex } from 'viem'
 import { publicClient } from './chain'
 import { STOCKS } from './stocks'
 
-function requireEnv(name: string): string {
-  const v = import.meta.env[name as keyof ImportMetaEnv] as string | undefined
+/**
+ * ⚠⚠ Takes the VALUE, not the name — and that is a security property, not a style choice.
+ *
+ * This used to do `import.meta.env[name]` with a dynamic key. Vite can only substitute
+ * `import.meta.env.SOMETHING` when the key is a literal it can see at build time; given a dynamic
+ * one it gives up and inlines the **entire env object**, so every `VITE_*` variable ends up in the
+ * public bundle — including ones no code reads.
+ *
+ * That is exactly what happened: a keyed RPC endpoint left over from an earlier build was sitting
+ * unused in `.env.local` and shipped to every visitor. Pass `import.meta.env.VITE_WHATEVER` in at
+ * the call site so the access stays static and only that one variable is inlined.
+ */
+function requireEnv(name: string, v: string | undefined): string {
   if (!v) {
     throw new Error(
       `${name} is not set. Copy .env.example to .env.local and fill it in — a launch encoded ` +
@@ -132,7 +143,7 @@ export const LAUNCH_POLICY = {
    *
    * ⚠ Deliberately not defaulted; see `requireEnv`.
    */
-  creatorFeeRecipient: requireEnv('VITE_FEE_RECIPIENT'),
+  creatorFeeRecipient: requireEnv('VITE_FEE_RECIPIENT', import.meta.env.VITE_FEE_RECIPIENT),
 
   /**
    * Creator tax, in basis points. 200 = 2%, matching what the product charged on pons.
