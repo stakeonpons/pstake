@@ -7,9 +7,9 @@ export const BRAND = {
   nameB: 'Stake', // rendered in white
   tagline: 'Stake your bag. Earn real stocks.',
   domain: 'stakeonpons.xyz',
-  twitter: 'https://x.com/bstakedotsh',
+  twitter: 'https://x.com/stakeonpons',
   /** The public repository. Cleared, the footer renders the entry as plain text instead. */
-  github: 'https://github.com/bstakedotsh/pstake',
+  github: 'https://github.com/stakeonpons/pstake',
   chain: 'Robinhood Chain',
   chainId: 4663,
   /**
