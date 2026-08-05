@@ -1,5 +1,5 @@
 /* ============================================================
-   pStake — Pons dark theme
+   Stake — Pons dark theme
 
    ⚠ Every value below is READ FROM PONS, not eyeballed: their design tokens, off
    ponsfamily.com's stylesheet. The accent is their `--accent` #d4fc50, which is itself Robinhood
@@ -2390,7 +2390,7 @@ table tbody tr:hover {
   flex-wrap: wrap;
 }
 
-/* A footer entry rendered as text rather than a link. Styled this way so nobody
+/* A footer entry whose destination does not exist yet. Styled as text, not a link, so nobody
    clicks it expecting to go somewhere. */
 .footer-soon {
   display: block;
@@ -2766,7 +2766,7 @@ table tbody tr:hover {
   }
 }
 
-/* ---------- the pStake token's own card ---------- */
+/* ---------- the Stake token's own card ---------- */
 
 /* Outlined rather than recoloured: the grid stays visually uniform, and the ring plus the glow read
    as "this one is ours" without turning the card into a different component. */

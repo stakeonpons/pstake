@@ -33,7 +33,7 @@ import { BLOCKSCOUT } from './chain'
 export type PairInfo = {
   /** The curve contract — the closest thing V2 has to a pair address. Null before graduation. */
   pair: Address | null
-  /** pStock ticker the token is paired against, or null when it is not paired against a stock. */
+  /** stock ticker the token is paired against, or null when it is not paired against a stock. */
   quoteTicker: string | null
 }
 
@@ -119,7 +119,7 @@ export async function readLaunch(address: Address) {
 }
 
 /**
- * Which pStock a token is paired against.
+ * Which stock a token is paired against.
  *
  * ⭐ Read from the factory, not searched for. On BNB this needed a multicall across two factories
  * and every candidate quote asset, because nothing recorded the pairing; Pons stores it.
@@ -230,7 +230,7 @@ export function tokenFromReceipt(receipt: {
   return null
 }
 
-/** Every pStock address, for balance reads. */
+/** Every stock address, for balance reads. */
 export const STOCK_ADDRESSES = STOCKS.map((s) => s.address as Address)
 
 /**

@@ -2,13 +2,13 @@
  * Client for the shared token registry.
  *
  * Replaces the per-browser `localStorage` list as the source of truth. A token launched through
- * pStake is now visible to every visitor, which is the whole point of `/tokens` being a public
+ * Stake is now visible to every visitor, which is the whole point of `/tokens` being a public
  * page rather than a private note.
  *
  * ## What the server does that the browser cannot
  *
  * It **verifies the listing against the chain**: a token is accepted only if its fee beneficiary is
- * pStake's. That check is meaningless client side — anything can POST to the endpoint — so this
+ * Stake's. That check is meaningless client side — anything can POST to the endpoint — so this
  * module deliberately does not pre-judge. It submits the address and lets the server decide.
  *
  * ## Failure behaviour
@@ -48,7 +48,7 @@ export type SubmitResult = { ok: true; source: 'verified' | 'admin' } | { ok: fa
 /**
  * Submits a token for listing.
  *
- * Accepted only if the chain says its fees route to pStake — or, for a deliberate exception, if
+ * Accepted only if the chain says its fees route to Stake — or, for a deliberate exception, if
  * `admin` carries a signature the server can recover to an admin wallet.
  */
 export async function submitToken(args: {
@@ -80,7 +80,7 @@ export async function submitToken(args: {
  * Removes a token, and keeps it removed.
  *
  * Always needs an admin signature. The server also records the address as hidden, because a token
- * that genuinely pays pStake would otherwise be re-listed by discovery within minutes.
+ * that genuinely pays Stake would otherwise be re-listed by discovery within minutes.
  */
 export async function removeToken(
   address: string,

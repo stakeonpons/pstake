@@ -130,7 +130,7 @@ export const Clock = ({ size = 16 }: P) => (
  * background, which is what keeps it legible at favicon sizes and on either theme.
  */
 /**
- * The pStake mark — the operator's actual logo file, not a redrawn approximation.
+ * The Stake mark — the operator's actual logo file, not a redrawn approximation.
  *
  * Served from `/logo-64.png` rather than the 500px original so a 28px header slot is not
  * downscaling a 140 KB image; 64px covers 2× displays at the sizes this is used.

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { parseUnits, type Address } from 'viem'
 import { BRAND, LOCK_TIERS } from '../brand'
 import { Arrow, Lock, Mark, Wallet } from '../components/Icons'
-import { Empty, Notice, StockBadge } from '../components/Ui'
+import { Empty, Notice, PreviewBanner, StockBadge } from '../components/Ui'
 import { useWallet, useWrongChain } from '../lib/wallet'
 import { buildRegistry, type RegistryToken } from '../lib/registry'
 import { PREVIEW_BALANCES, previewOn } from '../lib/preview'
@@ -17,10 +17,10 @@ import { amount as fmtAmount, usd } from '../lib/format'
 /**
  * Two things can be staked here, and they are paid from completely different pots.
  *
- *  - `bstock`  — a pStock. Rewards come from **the pStake token's own fees**, which are used to buy
- *                pStocks and split across everyone staking one.
- *  - `token`   — a token launched through pStake. Rewards come from **that token's own trading
- *                fees**, paid in the single pStock it was paired against.
+ *  - `bstock`  — a stock. Rewards come from **the Stake token's own fees**, which are used to buy
+ *                stocks and split across everyone staking one.
+ *  - `token`   — a token launched through Stake. Rewards come from **that token's own trading
+ *                fees**, paid in the single stock it was paired against.
  *
  * They must not be presented as one pool: the reward source, and therefore the risk, is different.
  */
@@ -41,14 +41,17 @@ type Holding = {
   balance: bigint
   balanceFloat: number
   priceUsd: number | null
-  /** The pStock a launched token pays out. Null for pStocks, which pay out in pStocks generally. */
+  /** The stock a launched token pays out. Null for stocks, which pay out in stocks generally. */
   reward: string | null
 }
 
 /**
  * Staged holdings for `?preview=1`.
  *
- * Not part of the published build.
+ * ⚠ The **balances are invented** — that is unavoidable, since the page is empty precisely because
+ * the wallet holds nothing. Everything around them is real: stock prices come from Blockscout, and
+ * the token rows are the live registry with their real symbols, decimals and prices. Callers must
+ * render `<PreviewBanner>` alongside.
  */
 function previewHoldings(listed: RegistryToken[], quotes: Record<string, Quote>): Holding[] {
   const stocks: Holding[] = STOCKS.filter((s) => s.address && PREVIEW_BALANCES[s.ticker]).map((s) => {
@@ -136,8 +139,8 @@ export default function Stake() {
             reward: null,
           })),
         ...listed
-          // ⛔ The pStake token is deliberately absent. Its model is the reverse: you stake a
-          // pStock and earn from ITS fees, so offering it here would contradict the product. See
+          // ⛔ The Stake token is deliberately absent. Its model is the reverse: you stake a
+          // stock and earn from ITS fees, so offering it here would contradict the product. See
           // `lib/staking.ts`.
           .filter((t) => isStakeable(t.address))
           .filter((t) => held(t.address) > 0n)
@@ -154,7 +157,7 @@ export default function Stake() {
           })),
       ]
       // Preview substitutes balances only when there are genuinely none to show, so a wallet that
-      // really does hold a pStock still sees its own position rather than a staged one.
+      // really does hold a stock still sees its own position rather than a staged one.
       setHoldings(preview && !found.length ? previewHoldings(listed, quotes) : found)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not read your balances.')
@@ -277,7 +280,7 @@ export default function Stake() {
         <div className="card empty" style={{ padding: '56px 24px' }}>
           <div className="spinner" />
           <h3 style={{ marginTop: 18 }}>Checking your wallet</h3>
-          <p>Looking for pStocks and {BRAND.name} tokens you can stake.</p>
+          <p>Looking for stocks and {BRAND.name} tokens you can stake.</p>
         </div>
         <Durations />
       </Shell>
@@ -292,8 +295,8 @@ export default function Stake() {
           body={error ?? 'You do not hold any stakable tokens.'}
           action={
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link className="btn btn-primary" to="/pstocks">
-                Browse pStocks <Arrow />
+              <Link className="btn btn-primary" to="/stocks">
+                Browse stocks <Arrow />
               </Link>
               <Link className="btn btn-ghost" to="/tokens">
                 Browse tokens
@@ -312,7 +315,7 @@ export default function Stake() {
         <div className="field">
           {bstocks.length > 0 && (
             <>
-              <div className="holding-group">pStocks</div>
+              <div className="holding-group">Stocks</div>
               <div className="holding-list">
                 {bstocks.map((h) => (
                   <HoldingRow key={h.address} h={h} on={token?.address === h.address} onPick={pick} />
@@ -406,11 +409,11 @@ export default function Stake() {
                 <span className="k">You earn</span>
                 <span className="v" style={{ fontFamily: 'var(--font)' }}>
                   {token.kind === 'bstock' ? (
-                    'pStocks'
+                    'Stocks'
                   ) : token.reward ? (
                     <StockBadge ticker={token.reward} to={false} />
                   ) : (
-                    'Its paired pStock'
+                    'Its paired stock'
                   )}
                 </span>
               </div>
@@ -506,8 +509,12 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="wrap page">
       <div className="page-head page-head-center">
         <h1>Stake</h1>
-        <p>Lock a token and start earning pStocks.</p>
-      </div>      {children}
+        <p>Lock a token and start earning stocks.</p>
+      </div>
+      {previewOn() && (
+        <PreviewBanner simulated="The balances below are simulated so this page can be reviewed while the connected wallet holds nothing — no position exists on chain. Prices and token details are real." />
+      )}
+      {children}
     </div>
   )
 }

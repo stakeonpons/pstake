@@ -1,5 +1,5 @@
 /**
- * Pons — the launchpad pStake builds on, on Robinhood Chain.
+ * Pons — the launchpad Stake builds on, on Robinhood Chain.
  *
  * ## ⚠⚠ There are TWO live Pons generations and they are not compatible
  *
@@ -8,7 +8,7 @@
  * | `0xA5aAb3F0…1feB` (V1) | **WETH only** | open |
  * | `0x7E1EAbd5…4dB8` (V2) | an **approved tokenized stock**, chosen per launch | `launchEnabled = false` |
  *
- * **pStake targets V2 and only V2.** The entire product is "a token paired against a stock, whose
+ * **Stake targets V2 and only V2.** The entire product is "a token paired against a stock, whose
  * trading fees pay that stock's stakers", and V1 cannot express it — every V1 token is paired
  * against WETH, so there would be no stock to pay anyone in. Pointing this file at V1 to make the
  * Launch button work would quietly ship a different product.
@@ -118,9 +118,9 @@ export type LaunchParams = {
   description: string
   /** Image URL or IPFS URI, stored on chain as a plain string. */
   logo: string
-  /** pStock ticker this token is paired against — decides the payout stock. */
+  /** stock ticker this token is paired against — decides the payout stock. */
   quoteAsset: string
-  /** That pStock's contract address. The factory pairs by address, not ticker. */
+  /** That stock's contract address. The factory pairs by address, not ticker. */
   quoteTokenAddress: string
   links: LaunchLinks
 }
@@ -128,7 +128,7 @@ export type LaunchParams = {
 export type LaunchTx = { to: string; data: string; value: bigint }
 
 /**
- * Launch terms fixed for every token launched through pStake.
+ * Launch terms fixed for every token launched through Stake.
  *
  * Policy, not preferences: not surfaced in the UI, not derived from form state, and a creator
  * cannot vary them. Everything that encodes a launch reads them from here.
@@ -225,7 +225,7 @@ export function buildLaunch(params: LaunchParams, launchFeeWei: bigint): LaunchT
           website: p.links.website,
           farcaster: p.links.farcaster,
         },
-        // ⚠ Policy, never a form value. This is what makes the token pay pStake's stakers.
+        // ⚠ Policy, never a form value. This is what makes the token pay Stake's stakers.
         creatorFeeRecipient: p.creatorFeeRecipient as Address,
         creatorTaxBps: p.creatorTaxBps,
         buybackEnabled: p.buybackEnabled,
@@ -266,7 +266,7 @@ export async function readLaunchGate(): Promise<LaunchGate> {
   return { enabled: Boolean(enabled), feeWei: feeWei as bigint }
 }
 
-/** Sends the launch from the creator's own wallet. Non-custodial: pStake never holds keys. */
+/** Sends the launch from the creator's own wallet. Non-custodial: Stake never holds keys. */
 export async function sendLaunch(
   provider: { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> },
   args: { owner: Address; params: LaunchParams; launchFeeWei: bigint },
@@ -288,7 +288,7 @@ export function validateLaunch(p: {
   if (!p.name.trim()) return 'Name is required'
   if (!p.symbol.trim()) return 'Symbol is required'
   if (p.symbol.length > 16) return 'Symbol is too long'
-  if (!p.quoteTokenAddress) return 'Choose a pStock to pair against'
+  if (!p.quoteTokenAddress) return 'Choose a stock to pair against'
   if (!STOCKS.some((s) => s.address.toLowerCase() === p.quoteTokenAddress.toLowerCase())) {
     return 'That asset is not approved as a Pons pair token'
   }

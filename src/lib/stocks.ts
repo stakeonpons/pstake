@@ -1,5 +1,5 @@
 /**
- * The pStock catalogue.
+ * The stock catalogue.
  *
  * ⭐ **This list is not a selection — it is the complete set of assets a Pons token can be paired
  * against, read from the chain.** Every one of the 202 Robinhood tokenized stocks on Robinhood
@@ -17,7 +17,7 @@
 import { BLOCKSCOUT } from './chain'
 
 export type Stock = {
-  /** pStock ticker, e.g. NVDA. On Robinhood Chain the token carries the real ticker, unsuffixed. */
+  /** stock ticker, e.g. NVDA. On Robinhood Chain the token carries the real ticker, unsuffixed. */
   ticker: string
   /** The underlying listing. Identical to `ticker` here; kept so callers need no special casing. */
   underlying: string
@@ -29,7 +29,7 @@ export type Stock = {
   decimals: number
 }
 
-/** Live quote for one pStock. */
+/** Live quote for one stock. */
 export type Quote = {
   priceUsd: number
   /**
@@ -71,10 +71,10 @@ export function stockByAddress(address: string): Stock | undefined {
 const DEXSCREENER = 'https://api.dexscreener.com/latest/dex/tokens/'
 
 /**
- * Live quotes for every pStock, keyed by ticker.
+ * Live quotes for every stock, keyed by ticker.
  *
  * ⚠⚠ **Binance is not the price source here and cannot be.** Robinhood's tokenized equities are
- * not Binance markets; the old site quoted `NVDABUSDT` only because pons's pStocks happened to be
+ * not Binance markets; the old site quoted `NVDABUSDT` only because pons's stocks happened to be
  * listed there. Asking Binance for "NVDA" returns a different asset's price, or nothing.
  *
  * Blockscout publishes the authoritative rate per token (`exchange_rate`), plus 24h volume and

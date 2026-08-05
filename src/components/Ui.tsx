@@ -20,7 +20,7 @@ export function Change({ value, digits = 2 }: { value: number; digits?: number }
 
 export function StockBadge({ ticker, to = true }: { ticker: string; to?: boolean }) {
   const el = <span className="badge badge-stock">{ticker}</span>
-  return to ? <Link to={`/pstocks?q=${ticker}`}>{el}</Link> : el
+  return to ? <Link to={`/stocks?q=${ticker}`}>{el}</Link> : el
 }
 
 export function CopyRow({ text }: { text: string }) {
@@ -96,6 +96,25 @@ export function Empty({
       <h3>{title}</h3>
       <p>{body}</p>
       {action}
+    </div>
+  )
+}
+
+/**
+ * Says out loud that the page is staged.
+ *
+ * Rendered on every page that preview mode touches, and deliberately loud — the site had all its
+ * invented data deleted, so anything that puts numbers back on screen has to be unmistakable
+ * about which of them are real. `?preview=0` in the URL turns the mode off.
+ */
+export function PreviewBanner({ simulated }: { simulated?: string }) {
+  return (
+    <div className="preview-banner">
+      <b>Preview mode</b>
+      <span>
+        {simulated ?? 'Staged content, shown so the page can be reviewed while it is empty.'} Append{' '}
+        <code>?preview=0</code> to the URL to leave.
+      </span>
     </div>
   )
 }

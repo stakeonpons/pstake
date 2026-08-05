@@ -56,9 +56,9 @@ export default function Stocks() {
   return (
     <div className="wrap page">
       <div className="page-head page-head-center">
-        <h1>pStocks</h1>
+        <h1>Stocks</h1>
         <p>
-          pStocks are ERC-20 tokens on {BRAND.chain}, each backed 1:1 by the real asset it tracks.
+          Stocks are ERC-20 tokens on {BRAND.chain}, each backed 1:1 by the real asset it tracks.
         </p>
         <p>These are the assets a token can be paired against on {BRAND.launchpad}.</p>
       </div>
@@ -88,13 +88,13 @@ export default function Stocks() {
       )}
 
       {rows.length === 0 ? (
-        <Empty title="No pStocks match" body="Try a ticker like NVDA, or a company name." />
+        <Empty title="No stocks match" body="Try a ticker like NVDA, or a company name." />
       ) : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>pStock</th>
+                <th>Stock</th>
                 <th>Sector</th>
                 <th className="right">Price</th>
                 <th className="right">24h</th>
@@ -181,23 +181,23 @@ export default function Stocks() {
           <div>
             <h2>How it works</h2>
             <p>
-              Each pStock is issued against the underlying asset, bought and held by a regulated
+              Each stock is issued against the underlying asset, bought and held by a regulated
               custodian. Supply on chain tracks what is in custody one for one, so the token stays
               redeemable and its price tracks the real thing. For equities, dividends and corporate
               actions pass through to holders.
             </p>
             <p>
-              Because it is a plain ERC-20, a pStock also works anywhere else on {BRAND.chain}. Swap
+              Because it is a plain ERC-20, a stock also works anywhere else on {BRAND.chain}. Swap
               it on Uniswap, or post it as collateral on lending markets, without unwinding your
               position.
             </p>
           </div>
 
           <div>
-            <h2>Why fees settle in pStocks</h2>
+            <h2>Why fees settle in stocks</h2>
             <p>
               On {BRAND.launchpad}, a token is launched against a quote asset. When that quote asset
-              is a pStock, every trade against the pair generates fees denominated in that stock, so
+              is a stock, every trade against the pair generates fees denominated in that stock, so
               paying stakers in it is the natural settlement.
             </p>
           </div>

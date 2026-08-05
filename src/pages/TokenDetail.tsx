@@ -21,10 +21,12 @@ import { Empty, StockBadge } from '../components/Ui'
  * One token's dashboard.
  *
  * Everything here is read live: the token's own contract, its pair's reserves and swap events,
- * Blockscout for the pStock price, DexScreener for the 24h figures, and the token's published
+ * Blockscout for the stock price, DexScreener for the 24h figures, and the token's published
  * metadata for artwork and links. Nothing is invented — a value that cannot be read renders a dash.
  *
- * Staking figures read from the pool and are zero until somebody stakes.
+ * ⚠ The staking panel reads zero because no position exists yet, not because it is a placeholder.
+ * When the staking contract lands it fills in without the layout changing. Do not put copy here
+ * describing the product as forthcoming — see the copy rules in README.
  */
 export default function TokenDetail() {
   const { address: raw } = useParams()
@@ -92,8 +94,8 @@ export default function TokenDetail() {
   /**
    * Staking figures for this token, read from the pool.
    *
-   * For a launched token that is its own pool. For the pStake token there is no single pool,
-   * because its stakers hold pStocks, so the totals are summed across every pStock pool.
+   * For a launched token that is its own pool. For the Stake token there is no single pool,
+   * because its stakers hold stocks, so the totals are summed across every stock pool.
    */
   const staking = useMemo(() => {
     if (!token) return { totalStaked: 0n, decimals: 18, symbol: '' }
@@ -268,7 +270,7 @@ export default function TokenDetail() {
           <h2>Fees</h2>
           <p>
             {model === 'pstake'
-              ? `Trading ${BRAND.name} pays a tax which funds everyone staking a pStock.`
+              ? `Trading ${BRAND.name} pays a tax which funds everyone staking a stock.`
               : 'Trading this token pays a tax which funds its stakers.'}
           </p>
         </div>
@@ -298,7 +300,7 @@ export default function TokenDetail() {
           <div className="section-head section-head-center">
             <h2>Staking</h2>
             <p>
-              Stake any pStock to earn from {BRAND.name}'s trading fees. {BRAND.name} itself is not
+              Stake any stock to earn from {BRAND.name}'s trading fees. {BRAND.name} itself is not
               staked.
             </p>
           </div>
@@ -313,7 +315,7 @@ export default function TokenDetail() {
             <table>
               <thead>
                 <tr>
-                  <th>pStock</th>
+                  <th>Stock</th>
                   <th className="right">Price</th>
                   <th className="right">Total staked</th>
                   <th className="right">Stakers</th>

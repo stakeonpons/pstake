@@ -11,7 +11,7 @@
  * request — so the whole page costs one HTTP call. Anything it does not know renders as a dash.
  *
  * ⚠⚠ **Read only pairs where our token is the BASE token.** DexScreener reports `priceChange`
- * against the base side, so for a pair where Pons made the pStock the base —
+ * against the base side, so for a pair where Pons made the stock the base —
  * `priceChange.h24` describes *MSFTB*, and using it would silently print an unrelated number under
  * our token's name. It is not the inverse either, since both sides move independently in USD, so
  * there is nothing to salvage: no base-side pair means no 24h figure. This is the same failure that

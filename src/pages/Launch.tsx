@@ -20,7 +20,7 @@ import { StockBadge } from '../components/Ui'
 import { Arrow, External, Rocket } from '../components/Icons'
 
 /**
- * Launching a token through pStake.
+ * Launching a token through Stake.
  *
  * ## What changed from the flap build, and why the form is shorter
  *
@@ -44,7 +44,7 @@ export default function Launch() {
       <div className="page-head page-head-center">
         <h1>Launch a token</h1>
         <p style={{ margin: '12px auto 0' }}>
-          Deploy a staking-enabled {BRAND.launchpad} token paired with a pStock.
+          Deploy a staking-enabled {BRAND.launchpad} token paired with a stock.
         </p>
       </div>
 
@@ -166,7 +166,7 @@ function CreateForm() {
   return (
     <div className="card" style={{ padding: 26 }}>
       {/*
-        Pons's own switch, stated plainly. It is not a pStake setting and no amount of retrying
+        Pons's own switch, stated plainly. It is not a Stake setting and no amount of retrying
         changes it, so the honest thing is to name who controls it.
       */}
       {gate && !gate.enabled && (
@@ -230,7 +230,7 @@ function CreateForm() {
 
       <div className="field">
         <div className="field-label">
-          <span>Paired pStock</span>
+          <span>Paired stock</span>
           <b>what stakers are paid in</b>
         </div>
         <div className="stock-picker">

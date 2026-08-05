@@ -2,9 +2,15 @@
  * Every piece of naming lives here. Rename the product in one place.
  */
 export const BRAND = {
-  name: 'pStake',
-  nameA: 'p', // rendered in the accent colour — echoes the pStock prefix
-  nameB: 'Stake', // rendered in white
+  /** The name in prose: sentences, the tab title, the footer, link previews. */
+  name: 'Stake',
+  /**
+   * The wordmark, lowercase, for the logo lockup in the header and footer only.
+   *
+   * ⚠ Deliberately different from `name`. A lowercase mark is the visual identity; a lowercase
+   * word inside a sentence ("© 2026 stake.") reads as a typo. Anything in prose uses `name`.
+   */
+  wordmark: 'stake',
   tagline: 'Stake your bag. Earn real stocks.',
   domain: 'stakeonpons.xyz',
   twitter: 'https://x.com/stakeonpons',
@@ -25,7 +31,7 @@ export const BRAND = {
   launchpad: 'Pons',
   launchpadUrl: 'https://www.ponsfamily.com/launchpad',
   /**
-   * The pStake token contract address, shown as the copyable CA pill on the home page.
+   * The Stake token contract address, shown as the copyable CA pill on the home page.
    *
    * Empty until the token exists — the pill reads "TBA" rather than showing a fake or zero
    * address, because a zero address in a CA slot is exactly what a scam clone looks like.
@@ -36,7 +42,7 @@ export const BRAND = {
   tokenCa: '',
 
   /**
-   * The pStake token's own listing on /tokens.
+   * The Stake token's own listing on /tokens.
    *
    * It is the first token launched on this platform, so it is **pinned to the front of the grid and
    * shown regardless of any search or filter** — a visitor should never have to hunt for it, and a
@@ -48,8 +54,8 @@ export const BRAND = {
    * below so the card is right from the first block.
    */
   pinned: {
-    name: 'pStake',
-    symbol: 'pStake',
+    name: 'Stake',
+    symbol: 'Stake',
     /** Shipped artwork, not read from token metadata — this is the brand mark. */
     image: '/pstake-token.png',
   },
@@ -70,12 +76,12 @@ export const BRAND = {
   protocolFeeBps: 200,
 
   /**
-   * Optional. Only relevant if pStake ever deploys tokens from its OWN wallet on a creator's
+   * Optional. Only relevant if Stake ever deploys tokens from its OWN wallet on a creator's
    * behalf — a custodial model this app does not use.
    *
    * The launch flow sends the transaction from **the creator's own wallet**, so the deployer in a
    * launch event is a different address every time and cannot identify "launched here". What
-   * identifies a pStake token is its **fee beneficiary** — see `isOurs()` in `registry.ts`.
+   * identifies a Stake token is its **fee beneficiary** — see `isOurs()` in `registry.ts`.
    */
   launcherWallets: [] as readonly string[],
 

@@ -3,12 +3,12 @@
  *
  * ## What makes a token "ours"
  *
- * Creators launch from **their own wallet** — pStake builds the transaction, their wallet signs and
+ * Creators launch from **their own wallet** — Stake builds the transaction, their wallet signs and
  * pays for it. So the `deployer` in a Pons launch event is a different address every time and says
  * nothing about whether the launch came through this site. Filtering on it cannot work.
  *
  * The durable answer is the **fee beneficiary**, which is nominated inside the launch transaction.
- * A token whose beneficiary is `LAUNCH_POLICY.creatorFeeRecipient` pays its creator fees to pStake's
+ * A token whose beneficiary is `LAUNCH_POLICY.creatorFeeRecipient` pays its creator fees to Stake's
  * stakers, and that is precisely what qualifies it — whether it was launched here, or launched on
  * Pons and pointed here afterwards. Ownership of the click is irrelevant; the fee route is the
  * product.
@@ -63,7 +63,7 @@ const KEY = 'pstake.manual-tokens.v1'
 const LAUNCHED_KEY = 'pstake.launched-here.v1'
 
 /**
- * Whether a token's creator fees are routed to pStake — the real membership test.
+ * Whether a token's creator fees are routed to Stake — the real membership test.
  *
  * Implemented in `fees.ts` and re-exported here so callers are unchanged: it reads
  * `creatorFeeRecipient` off the Pons launch record and compares it with
@@ -96,12 +96,12 @@ export function loadLaunched(): LaunchRecord[] {
 }
 
 /**
- * Records a token launched through pStake, the moment its transaction confirms.
+ * Records a token launched through Stake, the moment its transaction confirms.
  *
  * Writes to **both** places, on purpose:
  *  - the shared registry, so every visitor sees the token. The server re-verifies the fee route
  *    against the chain, so this is a submission, not an assertion — and it needs no signature,
- *    because a token that does not pay pStake is rejected however it was submitted.
+ *    because a token that does not pay Stake is rejected however it was submitted.
  *  - `localStorage`, so the launcher still sees their own token if the API is briefly unreachable.
  *
  * Never throws: a launch that confirmed on chain must not appear to have failed because a listing
@@ -144,7 +144,7 @@ export async function recordLaunch(rec: { address: string; reward: string; txHas
 
 export type ManualEntry = {
   address: Address
-  /** pStock ticker this token pays out in. Not derivable on chain — the admin states it. */
+  /** stock ticker this token pays out in. Not derivable on chain — the admin states it. */
   reward: string
   /** Optional override when the on-chain name is unhelpful. */
   note?: string
@@ -154,10 +154,10 @@ export type ManualEntry = {
 export type RegistryToken = OnChainToken & {
   /**
    * How this token got here.
-   * - `launch`  — launched through pStake (recorded at confirmation)
+   * - `launch`  — launched through Stake (recorded at confirmation)
    * - `manual`  — added by an admin
    * - `preview` — staged by `?preview=1`; real token, real chain reads, not a real listing
-   * - `pinned`  — the pStake token itself; always listed, always first
+   * - `pinned`  — the Stake token itself; always listed, always first
    * - `shared`  — from the registry API, its fee route verified on chain and visible to everyone
    */
   source: 'launch' | 'manual' | 'preview' | 'pinned' | 'shared'
@@ -210,7 +210,7 @@ export function removeManual(address: string) {
 /* ---------------------------------- assembly ---------------------------------- */
 
 function withUsd(t: OnChainToken, nativeUsd: number | null, quotes: Record<string, Quote>) {
-  // The pair may be quoted in BNB or in a pStock, so the USD conversion uses whichever asset the
+  // The pair may be quoted in BNB or in a stock, so the USD conversion uses whichever asset the
   // token actually trades against.
   const quoteUsd = t.quoteTicker ? (quotes[t.quoteTicker]?.priceUsd ?? null) : nativeUsd
 
@@ -248,9 +248,9 @@ export async function buildRegistry(
   // unreachable — `null` means exactly that, and is not the same as "there are none".
   const shared = await fetchListed()
 
-  // ⛔ Never scan by the CONNECTED wallet. A token someone launched on pons outside pStake does
-  // not route its creator fees here, so pStake has no fee stream to pay rewards from and staking it
-  // would earn exactly nothing. Membership is "fees flow to pStake", not "this wallet deployed it".
+  // ⛔ Never scan by the CONNECTED wallet. A token someone launched on pons outside Stake does
+  // not route its creator fees here, so Stake has no fee stream to pay rewards from and staking it
+  // would earn exactly nothing. Membership is "fees flow to Stake", not "this wallet deployed it".
   // The only deployer that qualifies is a custodial launcher wallet, if this deployment uses one.
   /**
    * ⛔ There is no browser-side launch scan on Robinhood Chain.
@@ -273,7 +273,7 @@ export async function buildRegistry(
 
   const jobs: Promise<RegistryToken | null>[] = []
 
-  // The pStake token is listed by identity, not by how it got here — it is the platform's own and
+  // The Stake token is listed by identity, not by how it got here — it is the platform's own and
   // is always present. Taken first so nothing else can claim its address with a weaker source.
   //
   // With no address configured, `?preview=1` substitutes a stand-in contract purely so the card can
@@ -286,8 +286,8 @@ export async function buildRegistry(
           ...t,
           ...withUsd(t, nativeUsd, quotes),
           source: 'pinned',
-          // ⛔ Deliberately null, now and after `tokenCa` is set. The pStake token is not paired
-          // against a pStock, so whatever quote asset its pair happens to use must never be
+          // ⛔ Deliberately null, now and after `tokenCa` is set. The Stake token is not paired
+          // against a stock, so whatever quote asset its pair happens to use must never be
           // presented as a reward ticker on its card.
           reward: null,
           name: BRAND.pinned.name,
@@ -298,9 +298,9 @@ export async function buildRegistry(
     )
   }
 
-  // ⚠⚠ AFTER the pinned block, never before. The pStake token routes its fees to pStake, so it
+  // ⚠⚠ AFTER the pinned block, never before. The Stake token routes its fees to Stake, so it
   // qualifies for the shared registry too and would be claimed here first — losing its pinned
-  // card, losing the pStock staking model, and gaining a reward badge it must never show. `take()`
+  // card, losing the stock staking model, and gaining a reward badge it must never show. `take()`
   // is first-come, so this ordering is the guard.
   for (const entry of shared ?? []) {
     if (!take(entry.address)) continue

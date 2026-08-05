@@ -10,9 +10,11 @@ export default function Footer() {
           <div className="footer-brand">
             <Link to="/" className="logo">
               <Mark size={26} />
-              <span className="yellow">{BRAND.name}</span>
+              {/* The lowercase mark. The copyright line below uses BRAND.name, because a
+                  lowercase word inside a sentence reads as a typo. */}
+              <span className="yellow">{BRAND.wordmark}</span>
             </Link>
-            <p>Stake pStocks on Robinhood Chain.</p>
+            <p>Stake stocks on Robinhood Chain.</p>
           </div>
 
           <div className="footer-col">
@@ -20,7 +22,7 @@ export default function Footer() {
             <Link to="/tokens">Tokens</Link>
             <Link to="/stake">Stake</Link>
             <Link to="/rewards">Rewards</Link>
-            <Link to="/pstocks">pStocks</Link>
+            <Link to="/stocks">Stocks</Link>
           </div>
 
           <div className="footer-col">

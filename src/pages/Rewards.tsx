@@ -74,7 +74,7 @@ export default function Rewards() {
     <div className="wrap page">
       <div className="page-head page-head-center">
         <h1>Rewards</h1>
-        <p>Every pStock earned through staking claimable at any time.</p>
+        <p>Every stock earned through staking claimable at any time.</p>
       </div>
 
       {hasRows ? (
@@ -82,7 +82,7 @@ export default function Rewards() {
           <table>
             <thead>
               <tr>
-                <th>pStock</th>
+                <th>Stock</th>
                 <th className="right">Claimable</th>
                 <th className="right">Value</th>
                 <th className="right"></th>
@@ -124,7 +124,7 @@ export default function Rewards() {
           <h3>{connected ? 'Nothing to claim' : 'Rewards'}</h3>
           <p style={{ maxWidth: 600 }}>
             {connected
-              ? 'Your claimable pStocks appear here, and can be claimed at any time.'
+              ? 'Your claimable stocks appear here, and can be claimed at any time.'
               : 'Connect your wallet to view your staking rewards and available claims.'}
           </p>
           {connected ? (
@@ -142,7 +142,7 @@ export default function Rewards() {
       )}
 
       <section className="section">
-        <Notice>Claimed rewards arrive as ordinary ERC-20 pStocks in your own wallet.</Notice>
+        <Notice>Claimed rewards arrive as ordinary ERC-20 stocks in your own wallet.</Notice>
       </section>
     </div>
   )

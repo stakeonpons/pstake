@@ -8,7 +8,7 @@ import { Mark, Menu, Wallet } from './Icons'
 const LINKS = [
   { to: '/tokens', label: 'Tokens' },
   { to: '/stake', label: 'Stake' },
-  { to: '/pstocks', label: 'pStocks' },
+  { to: '/stocks', label: 'Stocks' },
   { to: '/rewards', label: 'Rewards' },
   { to: '/launch', label: 'Launch' },
   { to: '/docs', label: 'Docs' },
@@ -43,7 +43,8 @@ export default function Header() {
         <div className="wrap">
           <NavLink to="/" className="logo" onClick={() => setOpen(false)}>
             <Mark />
-            <span className="yellow">{BRAND.name}</span>
+            {/* The lowercase mark, not the prose name — see BRAND.wordmark. */}
+            <span className="yellow">{BRAND.wordmark}</span>
           </NavLink>
 
           <nav className="nav">

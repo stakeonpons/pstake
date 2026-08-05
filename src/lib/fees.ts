@@ -9,7 +9,7 @@
  * Pons routes fees through a **fee escrow keyed by (recipient, asset)** — `balanceOfToken(account,
  * token)`. It is a claimable balance, not a per-token ledger:
  *
- *  - Two pStake tokens paired against the same stock pay into the **same** balance.
+ *  - Two Stake tokens paired against the same stock pay into the **same** balance.
  *  - Claiming resets it, so it is not a lifetime total either.
  *
  * ⛔ Therefore **a per-token "fees earned so far" figure cannot be read on this chain** and must
@@ -82,7 +82,7 @@ export async function readFeeTerms(token: Address): Promise<TokenFeeTerms | null
 }
 
 /**
- * Whether a token routes its creator fees to pStake.
+ * Whether a token routes its creator fees to Stake.
  *
  * ⚠⚠ **Not immutable.** The factory exposes
  * `executeCreatorFeeRecipientChange` behind `CREATOR_FEE_RECIPIENT_TIMELOCK`, so a creator can move
@@ -143,7 +143,7 @@ export async function readClaimable(account: Address): Promise<{ native: bigint;
  *
  * The escrow credits the RECIPIENT, and `claimToken` claims for `msg.sender`, so this only does
  * anything when signed by the fee recipient itself. That is the same non-custodial shape as the
- * launcher: pStake builds the calldata, the wallet that owns the money signs it.
+ * launcher: Stake builds the calldata, the wallet that owns the money signs it.
  */
 export function buildClaim(stockAddress: Address): { to: Address; data: Hex } {
   return {
