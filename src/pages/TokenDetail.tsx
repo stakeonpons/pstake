@@ -24,9 +24,7 @@ import { Empty, StockBadge } from '../components/Ui'
  * Blockscout for the stock price, DexScreener for the 24h figures, and the token's published
  * metadata for artwork and links. Nothing is invented — a value that cannot be read renders a dash.
  *
- * ⚠ The staking panel reads zero because no position exists yet, not because it is a placeholder.
- * When the staking contract lands it fills in without the layout changing. Do not put copy here
- * describing the product as forthcoming — see the copy rules in README.
+ * Staking figures read from the pool and are zero until somebody stakes.
  */
 export default function TokenDetail() {
   const { address: raw } = useParams()

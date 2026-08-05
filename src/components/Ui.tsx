@@ -100,25 +100,6 @@ export function Empty({
   )
 }
 
-/**
- * Says out loud that the page is staged.
- *
- * Rendered on every page that preview mode touches, and deliberately loud — the site had all its
- * invented data deleted, so anything that puts numbers back on screen has to be unmistakable
- * about which of them are real. `?preview=0` in the URL turns the mode off.
- */
-export function PreviewBanner({ simulated }: { simulated?: string }) {
-  return (
-    <div className="preview-banner">
-      <b>Preview mode</b>
-      <span>
-        {simulated ?? 'Staged content, shown so the page can be reviewed while it is empty.'} Append{' '}
-        <code>?preview=0</code> to the URL to leave.
-      </span>
-    </div>
-  )
-}
-
 export function Notice({ children }: { children: ReactNode }) {
   return (
     <div className="notice">

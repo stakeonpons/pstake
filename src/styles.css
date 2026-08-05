@@ -2390,7 +2390,7 @@ table tbody tr:hover {
   flex-wrap: wrap;
 }
 
-/* A footer entry whose destination does not exist yet. Styled as text, not a link, so nobody
+/* A footer entry rendered as text rather than a link. Styled this way so nobody
    clicks it expecting to go somewhere. */
 .footer-soon {
   display: block;

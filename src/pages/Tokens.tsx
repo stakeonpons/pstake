@@ -2,34 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { BRAND } from '../brand'
 import { STOCKS, fetchQuotes } from '../lib/stocks'
-import { buildRegistry, enrichWithMeta, removeManual, type RegistryToken } from '../lib/registry'
+import { buildRegistry, enrichWithMeta, type RegistryToken } from '../lib/registry'
 import { fetchNativeUsd } from '../lib/ponsIndexer'
 import { age } from '../lib/market'
 import { explorerToken } from '../lib/chain'
-import { isAdminAddress, isUnconfiguredAdmin, signAdminAction } from '../lib/admin'
-import { removeToken } from '../lib/registryApi'
-import { useWallet } from '../lib/wallet'
 import { shortAddr, usd } from '../lib/format'
 import { useToast } from '../lib/toast'
-import { Arrow, Check, Copy, External, Info, Plus, Search } from '../components/Icons'
-import { Empty, PreviewBanner, StockBadge } from '../components/Ui'
-import { previewOn } from '../lib/preview'
-import AddTokenModal from '../components/AddTokenModal'
+import { Arrow, Check, Copy, External, Info, Search } from '../components/Icons'
+import { Empty, StockBadge } from '../components/Ui'
 
 type SortKey = 'mcapUsd' | 'newest'
 
 export default function Tokens() {
   const [params, setParams] = useSearchParams()
-  const { address, provider } = useWallet()
-  const admin = isAdminAddress(address)
-  const toast = useToast()
 
   const [q, setQ] = useState('')
   const [sort, setSort] = useState<SortKey>('newest')
   const [rows, setRows] = useState<RegistryToken[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [addOpen, setAddOpen] = useState(false)
 
   const rewardOptions = useMemo(() => STOCKS.map((s) => s.ticker), [])
   const rewardParam = params.get('reward')
@@ -70,40 +61,6 @@ export default function Tokens() {
     void load()
   }, [load])
 
-  /**
-   * Removes a token from the shared registry, and from this browser's local list.
-   *
-   * ⚠ The local list alone is not enough: anything the server is serving would return on the next
-   * load, for everyone. The server needs a signature it can recover to an admin wallet, which is the
-   * real access control — `admin.ts` on the front end is only a UI gate.
-   */
-  const remove = useCallback(
-    async (t: RegistryToken) => {
-      removeManual(t.address)
-
-      if (t.source === 'shared' || t.source === 'launch') {
-        if (!provider || !address) {
-          toast.show('Connect the admin wallet to remove this')
-          return
-        }
-        try {
-          const signed = await signAdminAction(provider, address, `remove ${t.address}`)
-          const ok = await removeToken(t.address, { address, ...signed })
-          if (!ok) {
-            toast.show('Could not remove that token')
-            return
-          }
-        } catch {
-          toast.show('Could not remove that token')
-          return
-        }
-      }
-
-      setRows((prev) => prev?.filter((r) => r.address !== t.address) ?? null)
-      toast.show(`${t.symbol} removed`)
-    },
-    [provider, address, toast],
-  )
 
   const filtered = useMemo(() => {
     if (!rows) return []
@@ -143,22 +100,6 @@ export default function Tokens() {
         <p>Staking enabled tokens launched through {BRAND.name}.</p>
       </div>
 
-      {previewOn() && (
-        <PreviewBanner simulated={`The ${BRAND.name} card shows the real pinned layout, with figures borrowed from a live contract so it can be reviewed populated. The rest are real Pons tokens paired against a stock, read from chain, and are not ${BRAND.name} listings.`} />
-      )}
-
-      {isUnconfiguredAdmin(address) && (
-        <div className="alert alert-block" style={{ marginBottom: 20 }}>
-          <Info />
-          <div>
-            <b>Admin controls are open because no admin wallet is configured</b>
-            <p>
-              Set <code>adminWallets</code> in <code>src/brand.ts</code> to your address. Until you
-              do, these controls show in <code>npm run dev</code> only, never in a production build.
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="toolbar">
         <label className="search">
@@ -184,11 +125,6 @@ export default function Tokens() {
           <option value="mcapUsd">Sort: Market cap</option>
         </select>
 
-        {admin && (
-          <button className="btn btn-primary" onClick={() => setAddOpen(true)}>
-            <Plus size={16} /> Add token
-          </button>
-        )}
       </div>
 
       {error && (
@@ -213,20 +149,12 @@ export default function Tokens() {
           body={
             rows?.length
               ? 'Try a different filter, or clear the search.'
-              : admin
-                ? 'Launch a token through Stake, or add an existing one by contract address.'
-                : 'Tokens launched through Stake appear here.'
+              : 'Tokens launched through Stake appear here.'
           }
           action={
-            admin ? (
-              <button className="btn btn-primary" onClick={() => setAddOpen(true)}>
-                <Plus size={16} /> Add a token
-              </button>
-            ) : (
-              <Link className="btn btn-primary" to="/launch">
-                Launch a token <Arrow />
-              </Link>
-            )
+            <Link className="btn btn-primary" to="/launch">
+              Launch a token <Arrow />
+            </Link>
           }
         />
       ) : (
@@ -237,21 +165,10 @@ export default function Tokens() {
             <TokenCard
               key={t.address}
               t={t}
-              admin={admin}
-              onRemove={() => void remove(t)}
             />
           ))}
         </div>
       )}
-
-      <AddTokenModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdded={() => {
-          setAddOpen(false)
-          void load()
-        }}
-      />
     </div>
   )
 }
@@ -264,7 +181,7 @@ export default function Tokens() {
  * quieter row. Everything shown is read from chain or from the token's own published metadata; a
  * value that cannot be read renders a dash rather than a zero.
  */
-function TokenCard({ t, admin, onRemove }: { t: RegistryToken; admin: boolean; onRemove: () => void }) {
+function TokenCard({ t }: { t: RegistryToken }) {
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [broken, setBroken] = useState(false)
@@ -388,11 +305,6 @@ function TokenCard({ t, admin, onRemove }: { t: RegistryToken; admin: boolean; o
             <a href={explorerToken(t.address)} target="_blank" rel="noreferrer" title="Blockscout">
               <External size={12} />
             </a>
-            {admin && t.source === 'manual' && (
-              <button onClick={onRemove} title="Remove from the registry">
-                remove
-              </button>
-            )}
           </div>
         </div>
       </div>

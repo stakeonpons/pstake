@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { parseUnits, type Address } from 'viem'
 import { BRAND, LOCK_TIERS } from '../brand'
 import { Arrow, Lock, Mark, Wallet } from '../components/Icons'
-import { Empty, Notice, PreviewBanner, StockBadge } from '../components/Ui'
+import { Empty, Notice, StockBadge } from '../components/Ui'
 import { useWallet, useWrongChain } from '../lib/wallet'
 import { buildRegistry, type RegistryToken } from '../lib/registry'
 import { PREVIEW_BALANCES, previewOn } from '../lib/preview'
@@ -48,10 +48,7 @@ type Holding = {
 /**
  * Staged holdings for `?preview=1`.
  *
- * ⚠ The **balances are invented** — that is unavoidable, since the page is empty precisely because
- * the wallet holds nothing. Everything around them is real: stock prices come from Blockscout, and
- * the token rows are the live registry with their real symbols, decimals and prices. Callers must
- * render `<PreviewBanner>` alongside.
+ * Not part of the published build.
  */
 function previewHoldings(listed: RegistryToken[], quotes: Record<string, Quote>): Holding[] {
   const stocks: Holding[] = STOCKS.filter((s) => s.address && PREVIEW_BALANCES[s.ticker]).map((s) => {
@@ -510,11 +507,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="page-head page-head-center">
         <h1>Stake</h1>
         <p>Lock a token and start earning stocks.</p>
-      </div>
-      {previewOn() && (
-        <PreviewBanner simulated="The balances below are simulated so this page can be reviewed while the connected wallet holds nothing — no position exists on chain. Prices and token details are real." />
-      )}
-      {children}
+      </div>      {children}
     </div>
   )
 }
