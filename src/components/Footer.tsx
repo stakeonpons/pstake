@@ -39,8 +39,8 @@ export default function Footer() {
             <a href={BRAND.twitter} target="_blank" rel="noreferrer">
               X ↗
             </a>
-            {/* Rendered as plain text until the URL exists — a GitHub link that goes nowhere is
-                worse than one that is visibly not ready yet. Set BRAND.github to activate it. */}
+            {/* Falls back to plain text if BRAND.github is ever cleared: a link that goes nowhere
+                is worse than no link. */}
             {BRAND.github ? (
               <a href={BRAND.github} target="_blank" rel="noreferrer">
                 GitHub ↗

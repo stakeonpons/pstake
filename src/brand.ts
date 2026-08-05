@@ -8,7 +8,7 @@ export const BRAND = {
   tagline: 'Stake your bag. Earn real stocks.',
   domain: 'bstake.sh',
   twitter: 'https://x.com/bstakedotsh',
-  /** Set this and the footer's GitHub entry becomes a live link; empty renders it as plain text. */
+  /** The public repository. Cleared, the footer renders the entry as plain text instead. */
   github: 'https://github.com/bstakedotsh/bstake',
   chain: 'BNB Chain',
   chainId: 56,
