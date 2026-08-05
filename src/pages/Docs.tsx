@@ -215,15 +215,7 @@ export default function Docs() {
               <b>A token's settings are permanent.</b> The tax rates and the fee route of a launched
               token are fixed when it is created, and nobody can change them afterwards.
             </li>
-            <li>
-              <b>Jurisdiction.</b> Tokenized equities are not available everywhere. Check your own
-              eligibility.
-            </li>
           </ul>
-          <p>
-            None of this is investment advice. {BRAND.name} is not affiliated with Binance, BNB Chain
-            or {BRAND.launchpad}.
-          </p>
         </article>
       </div>
     </div>
