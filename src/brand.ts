@@ -12,6 +12,16 @@ export const BRAND = {
   github: 'https://github.com/bstakedotsh/pstake',
   chain: 'Robinhood Chain',
   chainId: 4663,
+  /**
+   * The chain's own page, for the footer link.
+   *
+   * ⚠ This link was still pointing at bnbchain.org after the migration, under the label "Robinhood
+   * Chain" — a live link sending visitors to the wrong chain entirely. Verified to answer 200
+   * before being put here.
+   */
+  chainUrl: 'https://robinhood.com/chain',
+  /** Blockscout, the chain's explorer. */
+  explorerUrl: 'https://robinhoodchain.blockscout.com',
   launchpad: 'Pons',
   launchpadUrl: 'https://www.ponsfamily.com/launchpad',
   /**

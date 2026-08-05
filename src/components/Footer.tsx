@@ -29,7 +29,7 @@ export default function Footer() {
             <a href={BRAND.launchpadUrl} target="_blank" rel="noreferrer">
               {BRAND.launchpad} ↗
             </a>
-            <a href="https://www.bnbchain.org" target="_blank" rel="noreferrer">
+            <a href={BRAND.chainUrl} target="_blank" rel="noreferrer">
               Robinhood Chain ↗
             </a>
           </div>
