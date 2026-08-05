@@ -1,0 +1,62 @@
+import { Link } from 'react-router-dom'
+import { BRAND } from '../brand'
+import { Mark } from './Icons'
+
+export default function Footer() {
+  return (
+    <footer className="footer">
+      <div className="wrap">
+        <div className="footer-top">
+          <div className="footer-brand">
+            <Link to="/" className="logo">
+              <Mark size={26} />
+              <span className="yellow">{BRAND.name}</span>
+            </Link>
+            <p>Stake bStocks on Binance Smart Chain.</p>
+          </div>
+
+          <div className="footer-col">
+            <h4>Protocol</h4>
+            <Link to="/tokens">Tokens</Link>
+            <Link to="/stake">Stake</Link>
+            <Link to="/rewards">Rewards</Link>
+            <Link to="/bstocks">bStocks</Link>
+          </div>
+
+          <div className="footer-col">
+            <h4>Links</h4>
+            <Link to="/docs">Docs</Link>
+            <a href={BRAND.launchpadUrl} target="_blank" rel="noreferrer">
+              {BRAND.launchpad} ↗
+            </a>
+            <a href="https://www.bnbchain.org" target="_blank" rel="noreferrer">
+              BNB Chain ↗
+            </a>
+          </div>
+
+          <div className="footer-col">
+            <h4>Socials</h4>
+            <a href={BRAND.twitter} target="_blank" rel="noreferrer">
+              X ↗
+            </a>
+            {/* Rendered as plain text until the URL exists — a GitHub link that goes nowhere is
+                worse than one that is visibly not ready yet. Set BRAND.github to activate it. */}
+            {BRAND.github ? (
+              <a href={BRAND.github} target="_blank" rel="noreferrer">
+                GitHub ↗
+              </a>
+            ) : (
+              <span className="footer-soon">GitHub</span>
+            )}
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <span>
+            © {new Date().getFullYear()} {BRAND.name}. Built on {BRAND.chain}.
+          </span>
+        </div>
+      </div>
+    </footer>
+  )
+}

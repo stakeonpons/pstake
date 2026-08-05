@@ -1,0 +1,2960 @@
+/* ============================================================
+   bStake — Binance-native dark theme
+   Palette is Binance's own: #F0B90B / #FCD535 on #0B0E11.
+   ============================================================ */
+
+:root {
+  --yellow: #f0b90b;
+  --yellow-hi: #fcd535;
+  --yellow-dim: rgba(240, 185, 11, 0.12);
+  --yellow-line: rgba(240, 185, 11, 0.28);
+
+  --bg: #0b0e11;
+  --bg-2: #12161c;
+  --surface: #181a20;
+  --surface-2: #1e2329;
+  --surface-3: #262b31;
+  --line: #2b3139;
+  --line-soft: #21262d;
+
+  --text: #eaecef;
+  --text-2: #b7bdc6;
+  --muted: #848e9c;
+  --faint: #5e6673;
+
+  --up: #0ecb81;
+  --down: #f6465d;
+
+  --radius: 12px;
+  --radius-lg: 18px;
+  --maxw: 1200px;
+
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --shadow-yellow: 0 8px 30px rgba(240, 185, 11, 0.18);
+
+  --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* Stop the rubber-band overscroll past the top and bottom of the page. Without this the whole
+     document bounces on macOS and iOS, which reads as the layout coming loose. */
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+p {
+  margin: 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.up {
+  color: var(--up);
+}
+.down {
+  color: var(--down);
+}
+.muted {
+  color: var(--muted);
+}
+.dim {
+  color: var(--text-2);
+}
+.yellow {
+  color: var(--yellow);
+}
+.nowrap {
+  white-space: nowrap;
+}
+.center {
+  text-align: center;
+}
+.right {
+  text-align: right;
+}
+
+/* ---------- layout ---------- */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.page {
+  flex: 1;
+  padding: 44px 0 96px;
+}
+
+.page-head {
+  margin-bottom: 32px;
+}
+
+/* Page titles carry the brand yellow — the same `--yellow` as the header wordmark, not the brighter
+   `--yellow-hi`, so the two read as one colour rather than two. Covers all six inner pages in one
+   rule; the home page uses a hero rather than `.page-head`, so it is untouched. */
+.page-head h1 {
+  font-size: 40px;
+  color: var(--yellow);
+}
+
+.page-head p {
+  color: var(--muted);
+  margin-top: 10px;
+  max-width: 620px;
+}
+
+/* Centred page header. The paragraph keeps its max-width so the line length stays readable, and
+   is centred within it rather than stretched across the full column. */
+.page-head-center {
+  text-align: center;
+}
+
+.page-head-center p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.section {
+  margin-top: 72px;
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+/* Centred variant, used where the section has no action button beside the heading. */
+.section-head-center {
+  display: block;
+  text-align: center;
+}
+
+.section-head-center p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.section-head h2 {
+  font-size: 28px;
+}
+
+.section-head p {
+  color: var(--muted);
+  margin-top: 8px;
+  max-width: 560px;
+}
+
+/* ---------- demo strip ---------- */
+
+.demo-strip {
+  background: linear-gradient(90deg, rgba(240, 185, 11, 0.14), rgba(240, 185, 11, 0.04));
+  border-bottom: 1px solid var(--yellow-line);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.demo-strip .wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.demo-strip strong {
+  color: var(--yellow-hi);
+  font-weight: 600;
+}
+
+.demo-strip button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 2px 6px;
+  line-height: 1;
+  font-size: 16px;
+}
+
+.demo-strip button:hover {
+  color: var(--text);
+}
+
+/* ---------- header ---------- */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(11, 14, 17, 0.86);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* Three explicit columns so the nav is centred on the HEADER, not on the space left over by the
+   logo and the wallet button — those two have different widths, and the wallet one changes width
+   when it connects, which would drift a flex-centred nav sideways.
+   Columns are assigned explicitly: below 820px the nav is display:none, and with implicit
+   placement the wallet button would then slide into the middle column. */
+.header .wrap {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+  height: 64px;
+}
+
+.header .logo {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.header .nav {
+  grid-column: 2;
+  justify-self: center;
+}
+
+.header .header-right {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.logo svg {
+  display: block;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav a {
+  padding: 7px 13px;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 14.5px;
+  font-weight: 500;
+  transition: color 0.14s, background 0.14s;
+}
+
+.nav a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.nav a.on {
+  color: var(--yellow-hi);
+  background: var(--yellow-dim);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chain-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+  background: var(--surface);
+}
+
+.burger {
+  display: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-nav {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 24px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg);
+}
+
+.mobile-nav a {
+  padding: 11px 12px;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.mobile-nav a.on {
+  color: var(--yellow-hi);
+  background: var(--yellow-dim);
+}
+
+.mobile-nav.open {
+  display: flex;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.14s, border-color 0.14s, color 0.14s, transform 0.06s, box-shadow 0.14s;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--yellow);
+  color: #14161a;
+}
+
+.btn-primary:hover {
+  background: var(--yellow-hi);
+  box-shadow: var(--shadow-yellow);
+}
+
+.btn-ghost {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.btn-ghost:hover {
+  background: var(--surface-3);
+  border-color: var(--faint);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--yellow-hi);
+  border-color: var(--yellow-line);
+}
+
+.btn-outline:hover {
+  background: var(--yellow-dim);
+}
+
+.btn-lg {
+  padding: 13px 26px;
+  font-size: 15.5px;
+  border-radius: 10px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+/* Yellow at low opacity turns olive — swap to a neutral instead. */
+.btn-primary:disabled {
+  background: var(--surface-3);
+  color: var(--faint);
+  opacity: 1;
+}
+
+.btn-primary:disabled:hover {
+  background: var(--surface-3);
+  box-shadow: none;
+}
+
+/* ---------- cards ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.card-tight {
+  padding: 18px;
+}
+
+.card-hoverable {
+  transition: border-color 0.16s, transform 0.16s, background 0.16s;
+}
+
+.card-hoverable:hover {
+  border-color: var(--yellow-line);
+  transform: translateY(-2px);
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Asymmetric two-column splits. Must be classes, not inline styles —
+   an inline grid-template-columns wins over every media query below. */
+.grid-lead {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+.grid-wide {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+}
+
+/* ---------- hero ---------- */
+
+.hero {
+  position: relative;
+  padding: 88px 0 72px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -340px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 620px;
+  background: radial-gradient(closest-side, rgba(240, 185, 11, 0.2), transparent 72%);
+  pointer-events: none;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 20%, transparent 78%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.hero .wrap {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 8px;
+  border: 1px solid var(--yellow-line);
+  background: var(--yellow-dim);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--yellow-hi);
+  font-weight: 500;
+}
+
+.eyebrow .tag {
+  background: var(--yellow);
+  color: #14161a;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Contract-address pill. Sits between the lede and the CTAs. */
+.ca-pill {
+  margin-top: 24px;
+  max-width: 100%;
+  gap: 9px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.ca-pill:hover {
+  background: rgba(240, 185, 11, 0.2);
+  border-color: var(--yellow);
+}
+
+.ca-pill-pending {
+  cursor: default;
+  color: var(--muted);
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.ca-label {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* The address is the one thing that must stay readable, but a 42-character string cannot sit on
+   one line inside a pill on a phone — so it shrinks and truncates there. A click still copies the
+   full value either way. */
+.ca-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.ca-icon {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.ca-pill:hover .ca-icon {
+  opacity: 1;
+}
+
+.ca-copied {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--up);
+  flex-shrink: 0;
+}
+
+@media (max-width: 620px) {
+  .ca-value {
+    font-size: 12px;
+  }
+}
+
+.hero h1 {
+  font-size: clamp(38px, 6.2vw, 68px);
+  margin: 26px 0 0;
+  letter-spacing: -0.035em;
+}
+
+.hero .lede {
+  color: var(--text-2);
+  font-size: clamp(16px, 1.6vw, 18.5px);
+  max-width: 620px;
+  margin: 20px auto 0;
+}
+
+.hero-cta {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 34px;
+  flex-wrap: wrap;
+}
+
+.hero-note {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--faint);
+}
+
+/* ---------- ticker ---------- */
+
+.ticker {
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg-2);
+  overflow: hidden;
+  padding: 11px 0;
+  position: relative;
+}
+
+.ticker::before,
+.ticker::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 90px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ticker::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg-2), transparent);
+}
+
+.ticker::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg-2), transparent);
+}
+
+.ticker-track {
+  display: flex;
+  gap: 36px;
+  width: max-content;
+  animation: slide 46s linear infinite;
+}
+
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker-item {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.ticker-item b {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+}
+
+/* ---------- stats ---------- */
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.stat .label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.stat .value {
+  font-size: 27px;
+  font-weight: 700;
+  margin-top: 7px;
+  letter-spacing: -0.02em;
+}
+
+.stat .sub {
+  font-size: 12.5px;
+  color: var(--faint);
+  margin-top: 3px;
+}
+
+/* ---------- steps ---------- */
+
+.step {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  padding: 26px 24px;
+  overflow: hidden;
+}
+
+.step::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--yellow-line), transparent);
+}
+
+.step-n {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--yellow);
+  letter-spacing: 0.1em;
+}
+
+.step h3 {
+  font-size: 19px;
+  margin: 14px 0 9px;
+}
+
+.step p {
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+/* Card with no icon and no step number: centre the text on both axes so the three sit level
+   even when their copy runs to different lengths. */
+.step-plain {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 34px 26px;
+}
+
+.step-plain h3 {
+  margin: 0 0 11px;
+}
+
+.step-plain p {
+  max-width: 34ch;
+}
+
+.step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--yellow-dim);
+  border: 1px solid var(--yellow-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yellow-hi);
+  margin-bottom: 4px;
+}
+
+/* Two explanatory columns inside one card, divided rather than floated apart. */
+.info-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0;
+  overflow: hidden;
+}
+
+.info-split > div {
+  padding: 30px 32px;
+}
+
+.info-split > div + div {
+  border-left: 1px solid var(--line-soft);
+}
+
+.info-split h2 {
+  font-size: 19px;
+  padding-left: 13px;
+  border-left: 3px solid var(--yellow);
+  line-height: 1.25;
+}
+
+.info-split p {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.75;
+  margin-top: 14px;
+}
+
+@media (max-width: 820px) {
+  .info-split {
+    grid-template-columns: 1fr;
+  }
+
+  /* The divider has to move with the stack, or the second column keeps a left edge it no longer
+     sits beside. */
+  .info-split > div + div {
+    border-left: none;
+    border-top: 1px solid var(--line-soft);
+  }
+}
+
+/* ---------- pairing diagram (home: launch section) ---------- */
+
+.pair-demo {
+  background: var(--bg-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+
+.pair-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pair-token {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pair-arrow {
+  color: var(--yellow);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.pair-note {
+  font-size: 12.5px;
+  color: var(--muted);
+  padding: 10px 0 10px 4px;
+  border-left: 1px dashed var(--line);
+  margin: 6px 0 6px 18px;
+  padding-left: 16px;
+}
+
+/* ---------- multiplier tiles ---------- */
+
+.mult-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mult {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 12px;
+  text-align: center;
+  /* ⚠ Required. These tiles are <button> elements on /stake, and a button does not inherit the
+     page's colour — without this the unselected numbers render in the browser's default button
+     text colour, which on a dark card reads as almost black. */
+  color: var(--text);
+  transition: border-color 0.16s, background 0.16s, transform 0.1s;
+}
+
+/* Hover and selected must not look the same, or an unselected tile under the cursor reads as the
+   chosen one. Hover lifts and lightens; only selection turns yellow. */
+.mult:hover {
+  border-color: var(--line);
+  background: var(--surface-3);
+  transform: translateY(-1px);
+}
+
+.mult.on,
+.mult.on:hover {
+  border-color: var(--yellow);
+  background: linear-gradient(180deg, var(--yellow-dim), transparent);
+  transform: none;
+}
+
+.mult .d {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.mult .m {
+  font-size: 24px;
+  font-weight: 700;
+  margin-top: 6px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.mult.on .m {
+  color: var(--yellow-hi);
+}
+
+/* Duration-only tile: the number leads, the unit sits under it. Reward multipliers are
+   deliberately not published — the yield calculator works them out. */
+.mult-duration .m {
+  margin-top: 0;
+}
+
+.mult-duration .d {
+  margin-top: 4px;
+}
+
+/* ---------- table ---------- */
+
+.table-wrap {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  background: var(--surface);
+}
+
+table th {
+  text-align: left;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+  background: var(--bg-2);
+}
+
+table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+table th.sortable:hover {
+  color: var(--text-2);
+}
+
+table td {
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 14.5px;
+  white-space: nowrap;
+}
+
+table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+table tbody tr {
+  transition: background 0.12s;
+}
+
+table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.tk {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* A token cell that links out. The arrow stays dim until hover so a table of them does not read
+   as a wall of icons. */
+.stock-link .tk-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.14s;
+}
+
+.stock-link .tk-name svg {
+  opacity: 0;
+  transition: opacity 0.14s;
+}
+
+.stock-link:hover .tk-name {
+  color: var(--yellow-hi);
+}
+
+.stock-link:hover .tk-name svg {
+  opacity: 0.9;
+}
+
+.stock-link:hover .tk-glyph {
+  border-color: var(--yellow-line);
+}
+
+.tk-glyph {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.tk-name {
+  font-weight: 600;
+}
+
+.tk-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ---------- badges ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.badge-stock {
+  border-color: var(--yellow-line);
+  background: var(--yellow-dim);
+  color: var(--yellow-hi);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.badge-up {
+  border-color: rgba(14, 203, 129, 0.32);
+  background: rgba(14, 203, 129, 0.1);
+  color: var(--up);
+}
+
+.badge-live {
+  border-color: rgba(14, 203, 129, 0.32);
+  background: rgba(14, 203, 129, 0.1);
+  color: var(--up);
+}
+
+.badge-live .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--up);
+  box-shadow: 0 0 0 3px rgba(14, 203, 129, 0.18);
+}
+
+.badge-muted {
+  color: var(--muted);
+}
+
+/* ---------- search / filters ---------- */
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.search svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--faint);
+  pointer-events: none;
+}
+
+.search input {
+  width: 100%;
+  padding: 11px 14px 11px 42px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.14s;
+}
+
+.search input::placeholder {
+  color: var(--faint);
+}
+
+.search input:focus {
+  border-color: var(--yellow-line);
+}
+
+.select {
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--yellow-line);
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: all 0.14s;
+}
+
+.chip:hover {
+  border-color: var(--faint);
+  color: var(--text);
+}
+
+.chip.on {
+  background: var(--yellow-dim);
+  border-color: var(--yellow-line);
+  color: var(--yellow-hi);
+}
+
+/* ---------- empty ---------- */
+
+.empty {
+  text-align: center;
+  padding: 64px 24px;
+}
+
+.empty .ico {
+  width: 56px;
+  height: 56px;
+  border-radius: 15px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+
+.empty h3 {
+  font-size: 20px;
+}
+
+.empty p {
+  color: var(--muted);
+  margin: 9px auto 22px;
+  max-width: 400px;
+  font-size: 14.5px;
+}
+
+/* ---------- CTA panel ---------- */
+
+.cta {
+  position: relative;
+  border-radius: 22px;
+  padding: 56px 40px;
+  text-align: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f0b90b, #fcd535 55%, #e0a800);
+  color: #14161a;
+}
+
+.cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 70% 90% at 80% 50%, #000, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 90% at 80% 50%, #000, transparent 70%);
+  pointer-events: none;
+}
+
+.cta h2 {
+  position: relative;
+  font-size: clamp(28px, 4vw, 42px);
+  letter-spacing: -0.03em;
+}
+
+.cta p {
+  position: relative;
+  margin: 14px auto 0;
+  max-width: 520px;
+  color: rgba(20, 22, 26, 0.78);
+  font-size: 16px;
+}
+
+.cta .btn-dark {
+  position: relative;
+  margin-top: 28px;
+  background: #14161a;
+  color: #fff;
+}
+
+.cta .btn-dark:hover {
+  background: #000;
+}
+
+/* ---------- stake panel ---------- */
+
+.stake-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+.field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+
+.field-label b {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.amount-input {
+  display: flex;
+  align-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 4px 4px 4px 16px;
+  transition: border-color 0.14s;
+}
+
+.amount-input:focus-within {
+  border-color: var(--yellow-line);
+}
+
+.amount-input input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 600;
+  font-family: var(--mono);
+  padding: 12px 0;
+}
+
+.amount-input input::placeholder {
+  color: var(--faint);
+}
+
+.max-btn {
+  background: var(--yellow-dim);
+  border: 1px solid var(--yellow-line);
+  color: var(--yellow-hi);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.max-btn:hover {
+  background: rgba(240, 185, 11, 0.2);
+}
+
+.pool-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 12px 16px;
+  color: var(--text);
+  text-align: left;
+  transition: border-color 0.14s;
+}
+
+.pool-select:hover {
+  border-color: var(--faint);
+}
+
+.pool-list {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  margin-top: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-2);
+}
+
+.pool-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text);
+  text-align: left;
+}
+
+.pool-list button:last-child {
+  border-bottom: none;
+}
+
+.pool-list button:hover {
+  background: var(--surface-2);
+}
+
+.summary {
+  background: var(--bg-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 4px 18px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 14px;
+}
+
+.summary-row:last-child {
+  border-bottom: none;
+}
+
+.summary-row .k {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.summary-row .v {
+  font-weight: 600;
+  font-family: var(--mono);
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.summary-row.hero-row .v {
+  font-size: 19px;
+  color: var(--yellow-hi);
+}
+
+/* Preview-mode banner. Yellow-tinted rather than surface-coloured so it reads as an overlay on the
+   page rather than as part of it — the numbers below it are staged and that has to be obvious. */
+.preview-banner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  background: var(--yellow-dim);
+  border: 1px solid var(--yellow-line);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.preview-banner b {
+  color: var(--yellow-hi);
+  letter-spacing: 0.02em;
+}
+
+.preview-banner code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.notice {
+  display: flex;
+  gap: 11px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.notice svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--yellow);
+}
+
+/* ---------- tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.tab {
+  flex: 1;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 14.5px;
+  font-weight: 600;
+  transition: background 0.14s, color 0.14s;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.on {
+  background: var(--yellow-dim);
+  color: var(--yellow-hi);
+  box-shadow: inset 0 0 0 1px var(--yellow-line);
+}
+
+/* ---------- form controls ---------- */
+
+.field-error {
+  color: var(--down);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.amount-input .unit {
+  padding: 0 16px 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.textarea {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--text);
+  padding: 13px 16px;
+  outline: none;
+  resize: vertical;
+  font-family: var(--font);
+  font-size: 14.5px;
+  line-height: 1.6;
+  transition: border-color 0.14s;
+}
+
+.textarea::placeholder {
+  color: var(--faint);
+}
+
+.textarea:focus {
+  border-color: var(--yellow-line);
+}
+
+.image-drop {
+  width: 112px;
+  height: 112px;
+  border-radius: 14px;
+  border: 1px dashed var(--line);
+  background: var(--bg-2);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  transition: border-color 0.14s, color 0.14s;
+}
+
+.image-drop:hover {
+  border-color: var(--yellow-line);
+  color: var(--yellow-hi);
+}
+
+.image-drop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-drop-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  text-align: center;
+  padding: 0 10px;
+}
+
+.quote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.quote-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 0.14s, background 0.14s;
+}
+
+.quote-opt:hover {
+  border-color: var(--faint);
+}
+
+.quote-opt.on {
+  border-color: var(--yellow-line);
+  background: linear-gradient(180deg, var(--yellow-dim), transparent);
+}
+
+.quote-opt .qt {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.quote-opt.on .qt {
+  color: var(--yellow-hi);
+}
+
+.quote-opt .qc {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.quote-opt .qp {
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+
+/* ---------- alerts ---------- */
+
+.alert {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 11px;
+  margin-top: 16px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.alert svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Centred variant: sits under a full-width button, so its text lines up with the button's own
+   centred label rather than starting at the left edge. */
+.alert-center {
+  justify-content: center;
+  text-align: center;
+}
+
+.alert b {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.alert p {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.alert-block {
+  background: var(--yellow-dim);
+  border: 1px solid var(--yellow-line);
+}
+
+.alert-block svg,
+.alert-block b {
+  color: var(--yellow-hi);
+}
+
+.alert-error {
+  background: rgba(246, 70, 93, 0.1);
+  border: 1px solid rgba(246, 70, 93, 0.32);
+}
+
+.alert-error svg,
+.alert-error b {
+  color: var(--down);
+}
+
+/* ---------- modal ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.66);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fade 0.14s ease-out;
+}
+
+.modal {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  animation: pop 0.16s ease-out;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal {
+    animation: none;
+  }
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.modal-head h3 {
+  font-size: 19px;
+}
+
+.modal-head p {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin-top: 6px;
+}
+
+.modal-x {
+  margin-left: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.modal-x:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.modal-body {
+  padding: 20px 22px 24px;
+  overflow-y: auto;
+}
+
+/* ---------- wallet picker ---------- */
+
+.wallet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wallet-opt {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 0.14s, background 0.14s;
+}
+
+.wallet-opt:hover:not(:disabled) {
+  border-color: var(--yellow-line);
+  background: var(--surface-2);
+}
+
+.wallet-opt:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.wallet-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--surface-3);
+}
+
+.wallet-icon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--yellow);
+  border: 1px solid var(--line);
+}
+
+.wallet-icon-sm {
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wallet-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.wallet-state {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.wallet-empty p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.wallet-install {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.chain-pill-wrong {
+  border-color: rgba(246, 70, 93, 0.4);
+  background: rgba(246, 70, 93, 0.1);
+  color: var(--down);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chain-pill-wrong:hover {
+  background: rgba(246, 70, 93, 0.18);
+}
+
+/* ---------- stakeable holdings ---------- */
+
+.holding-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.holding {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 15px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 0.14s, background 0.14s;
+}
+
+.holding:hover {
+  border-color: var(--faint);
+}
+
+.holding.on {
+  border-color: var(--yellow-line);
+  background: linear-gradient(180deg, var(--yellow-dim), transparent);
+}
+
+.holding-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.holding-name b {
+  font-size: 14.5px;
+}
+
+.holding-bal {
+  margin-left: auto;
+  font-size: 13.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* Group label above each set of holdings. The two sets pay out from different pots, so they are
+   labelled rather than merged into one undifferentiated list. */
+.holding-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin-bottom: 9px;
+}
+
+.holding-group span {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+/* Running total of what the first buy actually costs, in dollars. */
+.buy-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--yellow-dim);
+  border: 1px solid var(--yellow-line);
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.buy-value b {
+  font-size: 17px;
+  color: var(--yellow-hi);
+}
+
+/* The coin keeps its own round edge rather than inheriting the pill's. */
+/* The BNB Chain cube mark. No border-radius: the old asset was a filled circular disc that needed
+   clipping, this one is transparent line-art whose corners would be cut off by one. */
+.chain-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ---------- account menu ---------- */
+
+.account-menu {
+  position: relative;
+}
+
+.account-caret {
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform 0.14s;
+}
+
+.account-caret.open {
+  transform: rotate(180deg);
+}
+
+.account-drop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 5px;
+  z-index: 60;
+  animation: drop 0.12s ease-out;
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-drop {
+    animation: none;
+  }
+}
+
+.account-drop button {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Yellow, not red. Disconnecting is reversible and routine, so it gets the brand colour rather
+   than the destructive one. */
+.account-drop button:hover {
+  background: var(--surface-2);
+  color: var(--yellow);
+}
+
+/* ---------- add token ---------- */
+
+.found-card {
+  border: 1px solid var(--yellow-line);
+  background: var(--yellow-dim);
+  border-radius: 13px;
+  padding: 16px;
+  margin-top: 4px;
+}
+
+.found-card .tk-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--yellow-hi);
+}
+
+/* ---------- spinner ---------- */
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--surface-3);
+  border-top-color: var(--yellow);
+  margin: 0 auto;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}
+
+/* ---------- reward hero ---------- */
+
+.reward-hero {
+  position: relative;
+  border-radius: 22px;
+  padding: 34px;
+  background: linear-gradient(135deg, rgba(240, 185, 11, 0.16), rgba(240, 185, 11, 0.03));
+  border: 1px solid var(--yellow-line);
+  overflow: hidden;
+}
+
+.reward-hero .label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--yellow);
+  font-weight: 600;
+}
+
+.reward-hero .big {
+  font-size: clamp(38px, 6vw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-top: 8px;
+  font-family: var(--mono);
+}
+
+/* ---------- copy row ---------- */
+
+.copy-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 12px 12px 16px;
+}
+
+.copy-row code {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--text);
+  overflow-x: auto;
+  white-space: nowrap;
+  flex: 1;
+  scrollbar-width: none;
+}
+
+.copy-row code::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- FAQ ---------- */
+
+.faq-item {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 20px 0;
+  text-align: left;
+  font-size: 16.5px;
+  font-weight: 600;
+}
+
+.faq-q:hover {
+  color: var(--yellow-hi);
+}
+
+.faq-q .pm {
+  color: var(--yellow);
+  flex-shrink: 0;
+  transition: transform 0.18s;
+}
+
+.faq-q[aria-expanded='true'] .pm {
+  transform: rotate(45deg);
+}
+
+.faq-a {
+  color: var(--muted);
+  padding: 0 40px 22px 0;
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+/* ---------- activity ---------- */
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 14px;
+}
+
+.activity-row:last-child {
+  border-bottom: none;
+}
+
+.activity-row .who {
+  font-family: var(--mono);
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.activity-row .ago {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.kind-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ---------- docs ---------- */
+
+.doc {
+  max-width: 760px;
+}
+
+.doc h2 {
+  font-size: 24px;
+  margin-top: 48px;
+  scroll-margin-top: 90px;
+}
+
+.doc h3 {
+  font-size: 17.5px;
+  margin-top: 30px;
+}
+
+.doc p {
+  color: var(--text-2);
+  margin-top: 14px;
+  line-height: 1.72;
+}
+
+.doc ul,
+.doc ol {
+  color: var(--text-2);
+  margin-top: 14px;
+  padding-left: 22px;
+  line-height: 1.72;
+}
+
+.doc li {
+  margin-top: 8px;
+}
+
+.doc code {
+  font-family: var(--mono);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 13px;
+  color: var(--yellow-hi);
+}
+
+.doc a {
+  color: var(--yellow-hi);
+  border-bottom: 1px solid var(--yellow-line);
+}
+
+.doc-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.doc-toc {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.doc-toc a {
+  padding: 7px 12px;
+  border-radius: 7px;
+  color: var(--muted);
+}
+
+.doc-toc a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+/* ---------- sparkline ---------- */
+
+.spark {
+  display: block;
+}
+
+/* ---------- footer ---------- */
+
+.footer {
+  border-top: 1px solid var(--line-soft);
+  padding: 44px 0 34px;
+  background: var(--bg-2);
+}
+
+.footer-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  gap: 40px;
+  padding-bottom: 34px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.footer-brand p {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 14px;
+  max-width: 320px;
+}
+
+.footer h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.footer-col a {
+  display: block;
+  color: var(--text-2);
+  font-size: 14px;
+  padding: 5px 0;
+}
+
+.footer-col a:hover {
+  color: var(--yellow-hi);
+}
+
+.footer-bottom {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  padding-top: 24px;
+  color: var(--faint);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+/* A footer entry rendered as text rather than a link. Styled this way so nobody
+   clicks it expecting to go somewhere. */
+.footer-soon {
+  display: block;
+  color: var(--faint);
+  font-size: 14px;
+  padding: 5px 0;
+  cursor: default;
+}
+
+.disclaimer {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--faint);
+  line-height: 1.6;
+  max-width: 760px;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1000px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mult-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .stake-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .doc-toc {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .footer-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+  }
+}
+
+@media (max-width: 820px) {
+  .nav,
+  .chain-pill {
+    display: none;
+  }
+  .burger {
+    display: flex;
+  }
+  .header .wrap {
+    gap: 12px;
+  }
+  .grid-3,
+  .grid-lead,
+  .grid-wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .wrap {
+    padding: 0 16px;
+  }
+  .hero {
+    padding: 56px 0 48px;
+  }
+  .page {
+    padding: 30px 0 64px;
+  }
+  .page-head h1 {
+    font-size: 31px;
+  }
+  .section {
+    margin-top: 52px;
+  }
+  .section-head h2 {
+    font-size: 23px;
+  }
+  .grid-2,
+  .grid-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mult-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .card {
+    padding: 18px;
+  }
+  .cta {
+    padding: 40px 22px;
+  }
+  .reward-hero {
+    padding: 24px;
+  }
+  .footer-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hero-cta .btn {
+    width: 100%;
+  }
+}
+
+/* ---------- token cards (/tokens) ---------- */
+
+/* auto-fill, not auto-fit: a single card keeps its natural width instead of stretching across the
+   whole row, which is what makes a one-token registry look broken. */
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
+  gap: 18px;
+}
+
+.tcard {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.tcard:hover {
+  border-color: var(--yellow-line);
+  transform: translateY(-2px);
+}
+
+/* Square, so a grid of tokens with wildly different artwork still lines up. */
+.tcard-art {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tcard-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Fallback when a token published no image, or its host refuses to serve it. */
+.tcard-mono {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--yellow);
+  opacity: 0.55;
+}
+
+.tcard-tags {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: calc(100% - 20px);
+}
+
+/* Artwork is arbitrary — it can be light, dark or busy — so tags carry their own dark plate and
+   never depend on the image behind them for contrast. */
+.tcard-tag {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(11, 14, 17, 0.82);
+  backdrop-filter: blur(6px);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.tcard-tag-hi {
+  color: var(--bg);
+  background: var(--yellow);
+}
+
+/* The reward ticker sits on top of arbitrary artwork, so it gets an opaque plate of its own —
+   `.badge-stock`'s translucent yellow fill vanishes against a bright image (proven on a token whose
+   art is solid yellow). */
+.tcard-reward {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  border-radius: 7px;
+  background: rgba(11, 14, 17, 0.82);
+  backdrop-filter: blur(6px);
+  padding: 2px;
+}
+
+.tcard-body {
+  padding: 14px 15px 13px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tcard-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tcard-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcard-sym {
+  font-size: 11.5px;
+  color: var(--faint);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.tcard-figure {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.tcard-mcap {
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.tcard-chg {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.tcard-chg.up {
+  color: var(--up);
+}
+
+.tcard-chg.down {
+  color: var(--down);
+}
+
+.tcard-figure-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--faint);
+  margin-top: 2px;
+}
+
+.tcard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.tcard-ca {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.tcard-ca:hover {
+  color: var(--text-2);
+}
+
+.tcard-links {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+}
+
+.tcard-links a,
+.tcard-links button {
+  color: var(--faint);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-size: 11.5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tcard-links a:hover,
+.tcard-links button:hover {
+  color: var(--yellow);
+}
+
+@media (max-width: 520px) {
+  .token-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .tcard-mcap {
+    font-size: 19px;
+  }
+}
+
+/* ---------- toast ---------- */
+
+/* Fixed to the viewport bottom, centred, above everything including the sticky header. Pointer
+   events off so a toast can never swallow a click on whatever is underneath it. */
+.toast-layer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 28px;
+  display: flex;
+  justify-content: center;
+  z-index: 200;
+  pointer-events: none;
+  padding: 0 16px;
+}
+
+.toast {
+  background: var(--surface-2);
+  border: 1px solid var(--yellow-line);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 11px 18px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 100%;
+  text-align: center;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Respect a reduced-motion preference: still appear, just without the slide. */
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+/* ---------- the bStake token's own card ---------- */
+
+/* Outlined rather than recoloured: the grid stays visually uniform, and the ring plus the glow read
+   as "this one is ours" without turning the card into a different component. */
+.tcard-pinned {
+  border-color: var(--yellow);
+  box-shadow: 0 0 0 1px var(--yellow-line), var(--shadow-yellow);
+}
+
+.tcard-pinned:hover {
+  border-color: var(--yellow-hi);
+}
+
+/* The whole card copies the contract address, so it has to look pressable. */
+.tcard {
+  cursor: pointer;
+}
+
+.tcard:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.tcard-ca {
+  transition: color 0.14s;
+}
+
+.tcard:hover .tcard-ca {
+  color: var(--text-2);
+}
+
+/* ---------- optional links (/launch) ---------- */
+
+/* Two columns, matching flap's own layout so a creator filling both sites in sees the same shape.
+   Collapses to one column where two 15px inputs would each be under ~150px. */
+.link-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+@media (max-width: 620px) {
+  .link-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- token dashboard (/token/:address) ---------- */
+
+.back-link {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.back-link:hover {
+  color: var(--yellow);
+}
+
+.td-head {
+  display: grid;
+  grid-template-columns: 108px 1fr auto;
+  gap: 22px;
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+}
+
+/* The platform's own token gets the same ring its card has, so the two read as one thing. */
+.td-head-pinned {
+  border-color: var(--yellow);
+  box-shadow: 0 0 0 1px var(--yellow-line), var(--shadow-yellow);
+}
+
+.td-art {
+  width: 108px;
+  height: 108px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yellow);
+  font-size: 26px;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.td-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.td-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.td-title h1 {
+  font-size: 30px;
+  color: var(--yellow);
+}
+
+.td-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.td-dot {
+  color: var(--faint);
+}
+
+.td-desc {
+  margin-top: 12px;
+  color: var(--text-2);
+  font-size: 14px;
+  max-width: 62ch;
+}
+
+.td-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.td-links a,
+.td-ca {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.td-links a:hover,
+.td-ca:hover {
+  color: var(--yellow);
+}
+
+.td-price {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.td-mcap {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.td-mcap-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--faint);
+}
+
+.td-spark {
+  width: 150px;
+  margin-top: 10px;
+}
+
+@media (max-width: 860px) {
+  /* The price block moves under the identity rather than being squeezed beside it. */
+  .td-head {
+    grid-template-columns: 84px 1fr;
+  }
+
+  .td-art {
+    width: 84px;
+    height: 84px;
+  }
+
+  .td-price {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    text-align: left;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 16px;
+  }
+
+  .td-spark {
+    width: 100%;
+  }
+
+  .td-title h1 {
+    font-size: 24px;
+  }
+}
