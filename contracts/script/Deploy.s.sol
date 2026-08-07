@@ -102,11 +102,11 @@ contract Deploy is Script {
      * is **allowlisted**, so the operator picks the moment rather than the attacker; it is not zero,
      * because a deposit is still visible in the mempool.
      *
-     * ✏️ Set to 10,000 $STAKE by the operator, 7 Aug.
+     * ✏️ Set to 100,000 $STAKE by the operator, 7 Aug (raised from 10,000).
      * ➤ Tune with `setMinStake(poolId, …)` at any time. It needs no redeploy, so do not treat this
      * value as settled.
      */
-    uint256 constant STAKE_MIN = 10_000e18;
+    uint256 constant STAKE_MIN = 100_000e18;
 
     function minStakeFor(address token) internal view returns (uint256) {
         return 10 ** IERC20Decimals(token).decimals();

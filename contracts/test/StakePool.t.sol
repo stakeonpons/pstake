@@ -29,7 +29,7 @@ contract StakePoolTest is Test {
 
     /// ⚠ Mirrors `STAKE_MIN` in Deploy.s.sol. If that moves, move this — otherwise the floor
     /// under test stops being the floor that ships.
-    uint256 constant MIN_STAKE = 10_000e18;
+    uint256 constant MIN_STAKE = 100_000e18;
 
     PStakeStaking internal s;
     address internal owner = makeAddr("owner");
@@ -72,7 +72,7 @@ contract StakePoolTest is Test {
     }
 
     function test_stakeAndEarnTheSameToken() public {
-        _stake(alice, 100_000e18, 1);
+        _stake(alice, 1_000_000e18, 1);
         _fund(1_000e18);
 
         assertApproxEqAbs(s.pending(pool, alice, 0), 1_000e18, 1e6, "sole staker takes the deposit");
@@ -83,13 +83,13 @@ contract StakePoolTest is Test {
 
         // ⭐ Principal is untouched by a claim.
         (,, uint256 totalStaked,,,) = s.pools(pool);
-        assertEq(totalStaked, 100_000e18, "claiming must not consume principal");
+        assertEq(totalStaked, 1_000_000e18, "claiming must not consume principal");
     }
 
     /// Two stakers, equal weight, one deposit: split evenly and neither eats the other's principal.
     function test_twoStakers_splitDeposit_principalIntact() public {
-        _stake(alice, 100_000e18, 1);
-        _stake(bob, 100_000e18, 1);
+        _stake(alice, 1_000_000e18, 1);
+        _stake(bob, 1_000_000e18, 1);
         _fund(500e18);
 
         assertApproxEqAbs(s.pending(pool, alice, 0), 250e18, 1e6, "alice half");
@@ -103,8 +103,8 @@ contract StakePoolTest is Test {
         vm.prank(bob);
         (uint256 bobAmount, uint256 bobRewards) = s.withdraw(pool, 0);
 
-        assertEq(aliceAmount, 100_000e18, "alice principal returned in full");
-        assertEq(bobAmount, 100_000e18, "bob principal returned in full");
+        assertEq(aliceAmount, 1_000_000e18, "alice principal returned in full");
+        assertEq(bobAmount, 1_000_000e18, "bob principal returned in full");
         assertApproxEqAbs(aliceRewards + bobRewards, 500e18, 1e6, "rewards total the deposit");
 
         (,, uint256 totalStaked,,,) = s.pools(pool);
@@ -116,8 +116,8 @@ contract StakePoolTest is Test {
      * deposited**, so no claim is ever funded out of somebody's principal.
      */
     function test_rewardsNeverExceedDeposits() public {
-        _stake(alice, 500_000e18, 7);
-        _stake(bob, 100_000e18, 1);
+        _stake(alice, 5_000_000e18, 7);
+        _stake(bob, 1_000_000e18, 1);
 
         uint256 deposited = 3_000e18;
         _fund(deposited);
@@ -133,7 +133,7 @@ contract StakePoolTest is Test {
     /// A deposit with nobody staked must not be silently lost or credited to a later staker.
     function test_depositWithNoStakers_thenStake() public {
         _fund(1_000e18);
-        _stake(alice, 100_000e18, 1);
+        _stake(alice, 1_000_000e18, 1);
         assertEq(s.pending(pool, alice, 0), 0, "a later staker must not collect an earlier deposit");
     }
 
@@ -167,7 +167,7 @@ contract StakePoolTest is Test {
 
     /// Principal cannot be withdrawn before the lock ends.
     function test_lockedUntilTermEnds() public {
-        _stake(alice, 100_000e18, 7);
+        _stake(alice, 1_000_000e18, 7);
         vm.prank(alice);
         vm.expectRevert();
         s.withdraw(pool, 0);
