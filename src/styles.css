@@ -2978,3 +2978,168 @@ table tbody tr:hover {
     font-size: 24px;
   }
 }
+
+/* ============================================================================
+   LAUNCH FORM
+   ============================================================================
+
+   ⚠⚠ `.stock-picker`, `.stock-pick` and `.form-error` were referenced by Launch.tsx and had NO
+   RULES AT ALL. An unstyled `<button>` does not render as "plain" — it falls back to the user
+   agent's own control styling, which is a pale grey box with a system font. On a #0d0d0d page the
+   eight stock buttons came out as light rectangles with the ticker crammed into the left edge, and
+   the gate notice rendered as bare body text. That is what made this page look broken rather than
+   merely plain.
+
+   ⚠ Launch.tsx also dressed its text fields in `.amount-input`, which is the AMOUNT ENTRY control:
+   22px, weight 600, monospace. Correct for typing a quantity, wrong for a name or a URL, which is
+   why every placeholder read like code. `.text-input` below is the prose-shaped sibling and matches
+   `.textarea` exactly, so a field and the description under it agree.
+*/
+
+/* The form is a reading column, not a full-bleed surface. At 1200px the card ran inputs out to
+   ~1080px, which leaves a name field wide enough for a paragraph and makes the page feel empty. */
+.launch-form {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.text-input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--text);
+  padding: 13px 16px;
+  outline: none;
+  font-family: var(--font);
+  font-size: 14.5px;
+  transition: border-color 0.14s;
+}
+.text-input::placeholder {
+  color: var(--faint);
+}
+.text-input:focus {
+  border-color: var(--accent-line);
+}
+/* Links and addresses are read character by character, so they keep the mono face. */
+.text-input.mono {
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+
+/* ⚠ Informational, NOT a failure. Pons's gate being shut is the normal state of the world and the
+   creator did nothing wrong, so it must not borrow the red that a rejected transaction uses. */
+.form-notice {
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.form-notice code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.form-error {
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 69, 58, 0.32);
+  background: rgba(255, 69, 58, 0.08);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- stock picker */
+
+.stock-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+/* A button inherits none of the page's typography, so every property the tile needs is set here
+   rather than assumed. */
+.stock-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 11px 12px;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+}
+.stock-pick:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-2);
+}
+/* The selected stock decides what every staker is paid in, so it is stated with the accent rather
+   than a subtle tint. */
+.stock-pick.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.stock-pick .muted {
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------- logo field */
+
+/* Preview and picker are the same square: before a logo exists it is the drop target, after one
+   exists it is the preview, and it stays clickable so it can be replaced. */
+.logo-field {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.logo-field .logo-side {
+  flex: 1;
+  min-width: 0;
+}
+.logo-pick {
+  flex: none;
+  cursor: pointer;
+  position: relative;
+}
+.logo-pick input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.logo-pick .image-drop {
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.45;
+  padding: 8px;
+}
+.logo-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+@media (max-width: 620px) {
+  .logo-field {
+    flex-direction: column;
+  }
+  .stock-picker {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  }
+}

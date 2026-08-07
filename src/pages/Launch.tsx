@@ -62,6 +62,48 @@ type Status =
   | { kind: 'done'; hash: string; token: string }
   | { kind: 'error'; message: string }
 
+/**
+ * The square the logo is drawn into before it goes on chain.
+ *
+ * ⚠⚠ Pons stores the logo as a **plain string in the launch call**, so whatever the creator picks
+ * is written to the chain verbatim and paid for as calldata, permanently. There is no pinning
+ * service and no upload endpoint behind this page — see the header — so an uploaded file becomes a
+ * `data:` URI rather than a link to somewhere that has to keep existing.
+ *
+ * ⚠ 128px is the whole reason this is affordable. A phone photo is hundreds of kilobytes; redrawn
+ * to a 128px square and re-encoded it lands in single-digit kB. The exact size that will be written
+ * is shown next to the field rather than left to be discovered on the gas estimate.
+ */
+const LOGO_PX = 128
+
+async function fileToLogoDataUri(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file)
+  const canvas = document.createElement('canvas')
+  canvas.width = LOGO_PX
+  canvas.height = LOGO_PX
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('no 2d context')
+
+  // Cover, not stretch: crop the long side so a rectangular source keeps its proportions.
+  const side = Math.min(bitmap.width, bitmap.height)
+  ctx.drawImage(
+    bitmap,
+    (bitmap.width - side) / 2,
+    (bitmap.height - side) / 2,
+    side,
+    side,
+    0,
+    0,
+    LOGO_PX,
+    LOGO_PX,
+  )
+  bitmap.close?.()
+
+  // WebP is markedly smaller than PNG at this size. A browser that cannot encode it returns PNG
+  // from toDataURL rather than throwing, so this degrades to a larger string, never to a failure.
+  return canvas.toDataURL('image/webp', 0.85)
+}
+
 function CreateForm() {
   const wallet = useWallet()
   const toast = useToast()
@@ -77,6 +119,23 @@ function CreateForm() {
   const [touched, setTouched] = useState(false)
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [gate, setGate] = useState<LaunchGate | null>(null)
+  const [logoError, setLogoError] = useState<string | null>(null)
+
+  const logoIsUpload = logo.startsWith('data:')
+  const logoKb = logoIsUpload ? (new Blob([logo]).size / 1024).toFixed(1) : null
+
+  async function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    // Cleared so picking the SAME file again after a remove still fires a change event.
+    e.target.value = ''
+    if (!file) return
+    setLogoError(null)
+    try {
+      setLogo(await fileToLogoDataUri(file))
+    } catch {
+      setLogoError('That image could not be read. Try a PNG, JPG or WebP.')
+    }
+  }
 
   useEffect(() => {
     void fetchQuotes().then(setQuotes).catch(() => {})
@@ -164,13 +223,13 @@ function CreateForm() {
   }
 
   return (
-    <div className="card" style={{ padding: 26 }}>
+    <div className="card launch-form" style={{ padding: 26 }}>
       {/*
         Pons's own switch, stated plainly. It is not a Stake setting and no amount of retrying
         changes it, so the honest thing is to name who controls it.
       */}
       {gate && !gate.enabled && (
-        <div className="form-error" style={{ marginBottom: 20 }}>
+        <div className="form-notice" style={{ marginBottom: 20 }}>
           Pons is not accepting launches right now. The factory's own <code>launchEnabled</code> flag
           is off; this page follows it, so launching works again the moment Pons opens it.
         </div>
@@ -178,15 +237,48 @@ function CreateForm() {
 
       <div className="field">
         <div className="field-label">
-          <span>Logo URL</span>
+          <span>Logo</span>
           <b>stored on chain</b>
         </div>
-        <div className="amount-input">
-          <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://… or ipfs://…" />
+        <div className="logo-field">
+          <label className="logo-pick">
+            <input type="file" accept="image/*" onChange={onPickLogo} />
+            <div className="image-drop">
+              {logo.trim() !== '' ? <img src={logo} alt="" /> : <span>Upload image</span>}
+            </div>
+          </label>
+          <div className="logo-side">
+            {logoIsUpload ? (
+              <>
+                <div
+                  className="text-input"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+                >
+                  <span>Uploaded image</span>
+                  <button className="btn btn-ghost" onClick={() => setLogo('')}>
+                    Remove
+                  </button>
+                </div>
+                <div className="logo-hint">
+                  {logoKb} kB, written on chain with the launch. Resized to {LOGO_PX}×{LOGO_PX}.
+                </div>
+              </>
+            ) : (
+              <>
+                <input
+                  className="text-input mono"
+                  value={logo}
+                  onChange={(e) => setLogo(e.target.value)}
+                  placeholder="https://… or ipfs://…"
+                />
+                <div className="logo-hint">Upload an image, or paste a link to one.</div>
+              </>
+            )}
+          </div>
         </div>
-        {logo.trim() !== '' && (
-          <div className="image-drop" style={{ marginTop: 10 }}>
-            <img src={logo} alt="" />
+        {logoError && (
+          <div className="form-error" style={{ marginTop: 10 }}>
+            {logoError}
           </div>
         )}
       </div>
@@ -196,22 +288,25 @@ function CreateForm() {
           <div className="field-label">
             <span>Name</span>
           </div>
-          <div className="amount-input">
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="MarsCoin" maxLength={32} />
-          </div>
+          <input
+            className="text-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="MarsCoin"
+            maxLength={32}
+          />
         </div>
         <div className="field">
           <div className="field-label">
             <span>Symbol</span>
           </div>
-          <div className="amount-input">
-            <input
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              placeholder="MARS"
-              maxLength={16}
-            />
-          </div>
+          <input
+            className="text-input"
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+            placeholder="MARS"
+            maxLength={16}
+          />
         </div>
       </div>
 
@@ -264,13 +359,12 @@ function CreateForm() {
               <span>{f.label}</span>
               <b>optional</b>
             </div>
-            <div className="amount-input">
-              <input
-                value={links[f.key]}
-                onChange={(e) => setLinks({ ...links, [f.key]: e.target.value })}
-                placeholder={f.placeholder}
-              />
-            </div>
+            <input
+              className="text-input mono"
+              value={links[f.key]}
+              onChange={(e) => setLinks({ ...links, [f.key]: e.target.value })}
+              placeholder={f.placeholder}
+            />
           </div>
         ))}
       </div>
