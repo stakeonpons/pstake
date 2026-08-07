@@ -21,12 +21,19 @@
  * pinned card. Reusing it means there is no second place to keep in sync, and no token can adopt
  * the Stake model by accident: an address either is `BRAND.tokenCa` or it is not.
  *
- * ⚠ Consequences elsewhere, both load-bearing:
- *  - **Stake itself is not stakeable.** `/stake` must exclude it from the stakeable list, or the
- *    site would offer exactly the thing this model says is impossible.
- *  - Stake is paired against the chain's native asset, not a stock, so its fees accrue in ETH.
- *    Every read that
- *    assumes a stock quote has to tolerate that — see `quoteTicker === null` handling.
+ * ## ✏️ 7 Aug — Stake IS stakeable now, reversing the earlier rule
+ *
+ * This file used to say "Stake itself is not stakeable" and `/stake` excluded it, on the operator's
+ * twice-stated instruction. **They reversed that deliberately**: staking $STAKE to earn $STAKE is
+ * the route for handing the token's own fee revenue back to holders, and pool 8 in `Deploy.s.sol`
+ * exists for it. ⛔ Do not "restore" the exclusion — it was a decision, not a bug.
+ *
+ * ⚠ The two tracks above still stand and are still distinct. The Stake token now simply appears in
+ * both: its fees fund the stock pools, AND it can be staked in its own pool. What it must never do
+ * is adopt the `launched` model on its token page, because it is not paired against a stock.
+ *
+ * ⚠ Stake is paired against the chain's native asset, not a stock, so its fees accrue in ETH.
+ * Every read that assumes a stock quote has to tolerate that — see `quoteTicker === null` handling.
  */
 
 import { isPinned } from './pinned'
@@ -44,9 +51,10 @@ export function stakingModelFor(address: string): StakingModel {
 /**
  * Whether a token can itself be staked.
  *
- * False for the Stake token: its holders do not stake it, stock holders stake *instead* and are
- * paid from its fees.
+ * ✏️ Now true for EVERY token including Stake's own — see the reversal noted above. Kept as a
+ * function rather than inlined as `true` because it is the one place the rule lives, and the next
+ * change to it should happen here rather than in two page components.
  */
-export function isStakeable(address: string): boolean {
-  return stakingModelFor(address) === 'launched'
+export function isStakeable(_address: string): boolean {
+  return true
 }

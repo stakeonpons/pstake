@@ -416,9 +416,11 @@ export default function TokenDetail() {
         <section className="section">
           <div className="section-head section-head-center">
             <h2>Staking</h2>
+            {/* ✏️ This said "{BRAND.name} itself is not staked", which stopped being true when the
+                $STAKE pool was added. Corrected rather than reworded — see `lib/staking.ts`. */}
             <p>
-              Stake any stock to earn from {BRAND.name}'s trading fees. {BRAND.name} itself is not
-              staked.
+              Stake any stock to earn from {BRAND.name}'s trading fees, or stake {BRAND.name} itself
+              to earn more of it.
             </p>
           </div>
 
@@ -481,6 +483,14 @@ export default function TokenDetail() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* The other side of the same page: the table above stakes stocks, this stakes the token
+              itself. Both land on /stake, which is where positions are opened. */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
+            <Link className="btn btn-primary" to="/stake">
+              Stake {BRAND.pinned.symbol} <Arrow />
+            </Link>
           </div>
         </section>
       ) : (
