@@ -192,6 +192,16 @@ export default function TokenDetail() {
     extras?.priceUsd ??
     null
   const supply = token ? Number(token.totalSupply) / 10 ** token.decimals : null
+  /*
+    Both fee sides in one number. Requires the token's own USD price AND the native price, so it is
+    null whenever either is missing rather than silently reporting one side as the whole.
+  */
+  const feesTotalUsd = useMemo(() => {
+    if (!v1Fees || !token || priceUsd === null || nativeUsd === null) return null
+    const tokenUsd = (Number(v1Fees.token) / 10 ** token.decimals) * priceUsd
+    const ethUsd = (Number(v1Fees.eth) / 1e18) * nativeUsd
+    return tokenUsd + ethUsd
+  }, [v1Fees, token, priceUsd, nativeUsd])
   const mcapUsd = priceUsd !== null && supply !== null ? priceUsd * supply : null
 
   /**
@@ -368,7 +378,7 @@ export default function TokenDetail() {
         */}
         {v1FeeWallet && v1FeeWallet.toLowerCase() === LAUNCH_FEE_WALLET.toLowerCase() && (
           <>
-            <div className="grid grid-2">
+            <div className="grid grid-3">
               <Stat
                 label={`In ${token.symbol}`}
                 value={v1Fees === null ? '—' : `${fmtAmount(Number(v1Fees.token) / 10 ** token.decimals)} ${token.symbol}`}
@@ -382,6 +392,18 @@ export default function TokenDetail() {
                     ? usd((Number(v1Fees.eth) / 1e18) * nativeUsd)
                     : undefined
                 }
+              />
+              {/*
+                The two sides added together.
+
+                ⚠ Null unless BOTH prices are known. Adding only the side that happens to have a
+                price would print a total short by the other, while looking like a measurement — the
+                same failure the staked totals avoid. A dash says "not known", which is true.
+              */}
+              <Stat
+                label="Total"
+                value={feesTotalUsd !== null ? usd(feesTotalUsd) : '—'}
+                sub={feesTotalUsd !== null ? 'uncollected, in USD' : undefined}
               />
             </div>
           </>
@@ -407,7 +429,9 @@ export default function TokenDetail() {
             by scanning. A hard-coded zero is not a placeholder once pools hold money — it is a
             wrong number stated confidently. What replaced them is read from the contract.
           */}
-          <div className="grid grid-3">
+          {/* ⚠ Two stats in a THREE column grid left an empty third cell, so the pair hugged the
+              left while the table below ran the full width. */}
+          <div className="grid grid-2">
             <Stat
               label="Total staked"
               value={stakedTotalUsd !== null ? usd(stakedTotalUsd, { compact: true }) : '—'}
