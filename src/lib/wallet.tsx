@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -54,6 +55,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /**
+   * True once the user has picked a wallet themselves.
+   *
+   * ⚠⚠ The silent reconnect below must never overwrite that choice. It fires on a timer holding the
+   * rdns read at MOUNT, so without this it reattaches the PREVIOUS wallet — connect a different one
+   * inside the delay and the header flips to the old account a moment later. `cancelled` does not
+   * cover it: that only trips on unmount, not on the user connecting.
+   */
+  const userPickedRef = useRef(false)
 
   useEffect(() => startDiscovery(), [])
 
@@ -108,6 +119,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const connectTo = useCallback(
     async (detail: ProviderDetail) => {
+      // ⚠ Set BEFORE the first await. From here on, the silent reconnect must not touch anything.
+      userPickedRef.current = true
       setConnecting(true)
       setError(null)
       try {
@@ -156,18 +169,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await syncChain(provider)
   }, [provider, syncChain])
 
-  /** Reconnect silently if this browser already authorised a wallet. */
+  /**
+   * Reconnect silently if this browser already authorised a wallet.
+   *
+   * ⚠ `userPickedRef` is checked TWICE on purpose: once before the request, and again after
+   * awaiting it, because the user's click can land while `eth_accounts` is still in flight.
+   */
   useEffect(() => {
     const rdns = localStorage.getItem(LAST_WALLET)
     if (!rdns) return
     let cancelled = false
     const t = setTimeout(async () => {
+      if (cancelled || userPickedRef.current) return
       const detail = providerByRdns(rdns) ?? (rdns === 'legacy.injected' ? legacyProvider() : null)
-      if (!detail || cancelled) return
+      if (!detail) return
       try {
         // eth_accounts does NOT prompt — it returns only already-authorised accounts.
         const accounts = (await detail.provider.request({ method: 'eth_accounts' })) as string[]
-        if (accounts?.length && !cancelled) await attach(detail, accounts)
+        if (accounts?.length && !cancelled && !userPickedRef.current) await attach(detail, accounts)
       } catch {
         /* stay disconnected */
       }
