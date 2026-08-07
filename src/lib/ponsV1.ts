@@ -66,6 +66,8 @@ export const LOCKER_ABI = parseAbi([
   'function feeRedirects(address token) view returns (address recipient)',
   'function feeRecipientTokenCount(address recipient) view returns (uint256)',
   'function feeRecipientTokens(address recipient, uint256 index) view returns (address token)',
+  'function deployerTokenCount(address deployer) view returns (uint256)',
+  'function deployerTokens(address deployer, uint256 index) view returns (address token)',
   'function protocolFeeShare() view returns (uint256)',
   'function tokenProtocolFeeShares(address token) view returns (uint256)',
   'error NoFeesToCollect()',
@@ -259,38 +261,66 @@ export async function readV1FeeWallet(token: Address): Promise<Address | null> {
 }
 
 /**
- * Every token whose V1 fees route to `recipient`, straight off the locker's own reverse index.
+ * Every V1 token whose fees reach `recipient`, from the locker's own indexes. No server, no log
+ * scan — which matters because the RPC caps `eth_getLogs` at 2,000 blocks (~3 minutes) here.
  *
- * ⭐ This is what makes "tokens launched from our website" enumerable without any server: only this
- * site sets that fee wallet, so the locker's index IS the list. It needs no log scan, which matters
- * because the RPC caps `eth_getLogs` at 2,000 blocks (~3 minutes) on this chain.
+ * ⚠⚠ **TWO indexes, and neither alone is enough.**
+ *  - `feeRecipientTokens` covers tokens explicitly REDIRECTED to us — what a launch through this
+ *    site produces, because it names a fee wallet that differs from the creator.
+ *  - `deployerTokens` covers tokens WE launched, where `feeRedirects` stays the zero address
+ *    because the default recipient is already the deployer.
+ *
+ * Reading only the first silently omits every token the operator launched themselves; reading only
+ * the second omits every token launched by a creator through the site.
+ *
+ * ⭐ The union is then filtered by the EFFECTIVE fee wallet, so a token that was deployed by us and
+ * later redirected elsewhere drops out rather than being listed as ours on the strength of history.
  */
-export async function listV1TokensFor(recipient: Address): Promise<Address[]> {
+async function readIndex(
+  fn: 'feeRecipientTokens' | 'deployerTokens',
+  countFn: 'feeRecipientTokenCount' | 'deployerTokenCount',
+  who: Address,
+): Promise<Address[]> {
   try {
     const n = (await publicClient.readContract({
       address: PONS_V1.locker,
       abi: LOCKER_ABI,
-      functionName: 'feeRecipientTokenCount',
-      args: [recipient],
+      functionName: countFn,
+      args: [who],
     })) as bigint
     if (n === 0n) return []
-    const idx = Array.from({ length: Number(n) }, (_, i) => BigInt(i))
-    const tokens = await Promise.all(
-      idx.map((i) =>
+    const out = await Promise.all(
+      Array.from({ length: Number(n) }, (_, i) =>
         publicClient
-          .readContract({
-            address: PONS_V1.locker,
-            abi: LOCKER_ABI,
-            functionName: 'feeRecipientTokens',
-            args: [recipient, i],
-          })
+          .readContract({ address: PONS_V1.locker, abi: LOCKER_ABI, functionName: fn, args: [who, BigInt(i)] })
           .catch(() => null),
       ),
     )
-    return tokens.filter(Boolean) as Address[]
+    return out.filter(Boolean) as Address[]
   } catch {
     return []
   }
+}
+
+export async function listV1TokensFor(recipient: Address): Promise<Address[]> {
+  const [redirected, deployed] = await Promise.all([
+    readIndex('feeRecipientTokens', 'feeRecipientTokenCount', recipient),
+    readIndex('deployerTokens', 'deployerTokenCount', recipient),
+  ])
+
+  const seen = new Set<string>()
+  const candidates: Address[] = []
+  for (const a of [...redirected, ...deployed]) {
+    const k = a.toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    candidates.push(a)
+  }
+
+  const resolved = await Promise.all(
+    candidates.map(async (a) => ((await readV1FeeWallet(a))?.toLowerCase() === recipient.toLowerCase() ? a : null)),
+  )
+  return resolved.filter(Boolean) as Address[]
 }
 
 /* ------------------------------------ the snipe ------------------------------------ */
