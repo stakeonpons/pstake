@@ -1,22 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { formatUnits, parseUnits, type Address } from 'viem'
+import { parseEther, type Address } from 'viem'
 import { BRAND } from '../brand'
 import { STOCKS, fetchQuotes, type Quote } from '../lib/stocks'
+import { EMPTY_LINKS, validateLaunch, type LaunchLinks } from '../lib/pons'
 import {
-  EMPTY_LINKS,
-  ERC20_APPROVE_ABI,
-  applySlippage,
-  previewDevBuy,
-  readCurveFor,
-  readLaunchGate,
-  sendApprove,
-  sendDevBuy,
-  sendLaunch,
-  validateLaunch,
-  type LaunchGate,
-  type LaunchLinks,
-} from '../lib/pons'
+  previewSnipe,
+  readPoolFee,
+  readV1Gate,
+  sendSnipe,
+  sendV1Launch,
+  waitForTrading,
+  type V1Gate,
+} from '../lib/ponsV1'
+import { LAUNCH_FEE_WALLET } from '../lib/launchPolicy'
 import { tokenFromReceipt } from '../lib/ponsIndexer'
 import { recordLaunch } from '../lib/registry'
 import { publicClient, explorerTx } from '../lib/chain'
@@ -38,14 +35,19 @@ import { Arrow, External, Rocket } from '../components/Icons'
  * the picked file is redrawn to a small square and encoded as a `data:` URI that travels in the
  * launch call itself. See `fileToLogoDataUri`.
  *
- * ⚠⚠ **The dev buy is NOT part of the launch, and no amount of looking will find a parameter for
- * it.** `launchToken` takes params, a config id and the pair token, and `msg.value` is the launch
- * fee alone; the verified factory ABI has no buy field and no buy function, and all 16 real V2
- * launches report `initialBuyWei: 0`. A creator's first buy is therefore a separate **approve +
- * `buy` against the bonding curve** once the launch has confirmed — see `CURVE_ABI` in `pons.ts`.
+ * ## ⚠⚠ Launches go through Pons **V1**, not V2
  *
- * There is still **no vanity salt**: flap ground a CREATE2 salt to an address ending 7777, which
- * has no equivalent here.
+ * V2 pairs against a tokenized stock, which is the shape this product describes, but Pons keeps
+ * `launchEnabled = false` on it. V1 is open, so launches go there — and **V1 pairs against WETH,
+ * always**. The stock picked below is therefore recorded by Stake, not enforced by the chain. See
+ * the header of `ponsV1.ts`.
+ *
+ * ⭐ The **fee wallet is a launch parameter** on V1, so every token launched here routes its fees to
+ * Stake in the launch call itself. It is policy, not a form value: never rendered, never editable.
+ *
+ * ⭐ The **developer buy is just extra `msg.value`** — proven by arithmetic on a real V1 launch
+ * (tx value − launch fee == the recorded `initialBuyAmount`). One transaction, no approve, no
+ * bonding curve, and denominated in **native ETH** rather than in the picked stock.
  *
  * ⚠⚠ **The gate is real, not decoration.** Pons controls `launchEnabled()` on the factory and it is
  * false today. This form reads it live on mount and again on submit: when Pons is closed, launching
@@ -134,10 +136,9 @@ function CreateForm() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [touched, setTouched] = useState(false)
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
-  const [gate, setGate] = useState<LaunchGate | null>(null)
+  const [gate, setGate] = useState<V1Gate | null>(null)
   const [logoError, setLogoError] = useState<string | null>(null)
   const [devBuy, setDevBuy] = useState('')
-  const [pairBalance, setPairBalance] = useState<{ raw: bigint; decimals: number } | null>(null)
 
   const logoIsUpload = logo.startsWith('data:')
   const logoKb = logoIsUpload ? (new Blob([logo]).size / 1024).toFixed(1) : null
@@ -158,63 +159,38 @@ function CreateForm() {
   useEffect(() => {
     void fetchQuotes().then(setQuotes).catch(() => {})
     // Read live on every mount. A cached "open" would offer a transaction the chain rejects.
-    void readLaunchGate()
+    void readV1Gate()
       .then(setGate)
       .catch(() => setGate({ enabled: false, feeWei: 0n }))
   }, [])
 
   const stock = useMemo(() => STOCKS.find((s) => s.ticker === quoteAsset), [quoteAsset])
+  const error = useMemo(
+    () => validateLaunch({ name, symbol, quoteTokenAddress: stock?.address ?? '' }),
+    [name, symbol, stock],
+  )
 
   /*
-    The creator's balance of the stock they picked, so the dev buy can be checked against something
-    real instead of failing at signing time. Re-read whenever the pair or the wallet changes.
-  */
-  useEffect(() => {
-    setPairBalance(null)
-    if (!stock?.address || !wallet.address) return
-    let cancelled = false
-    void publicClient
-      .readContract({
-        address: stock.address as Address,
-        abi: ERC20_APPROVE_ABI,
-        functionName: 'balanceOf',
-        args: [wallet.address as Address],
-      })
-      .then((raw) => {
-        if (!cancelled) setPairBalance({ raw: raw as bigint, decimals: stock.decimals })
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [stock?.address, stock?.decimals, wallet.address])
-
-  /*
-    ⚠⚠ Parsed with the PAIR TOKEN's own decimals, never a flat 1e18. USDG is 6, so a flat parse
-    would ask for a trillion times the intended amount and the approve would silently cover it.
-    ⚠ parseUnits throws on a half-typed number ("0.", "1e"), which is an ordinary keystroke here.
+    ⚠⚠ The V1 developer buy is denominated in **native ETH**, not in the stock. V1 pairs against
+    WETH, so the buy rides along as extra `msg.value` on the launch call — see `buildV1Launch`.
+    Parsing this with a stock's decimals would be wrong in both directions.
   */
   const devBuyWei = useMemo(() => {
-    const t = devBuy.trim()
-    if (!t || !stock) return 0n
+    const v = devBuy.trim()
+    if (!v) return 0n
     try {
-      return parseUnits(t, stock.decimals)
+      return parseEther(v)
     } catch {
       return null
     }
-  }, [devBuy, stock])
+  }, [devBuy])
 
   const devBuyError = useMemo(() => {
     if (devBuy.trim() === '') return null
     if (devBuyWei === null) return 'Enter a number'
     if (devBuyWei <= 0n) return 'Enter an amount above zero'
-    if (pairBalance && devBuyWei > pairBalance.raw) return `More ${stock?.ticker} than you hold`
     return null
-  }, [devBuy, devBuyWei, pairBalance, stock])
-  const error = useMemo(
-    () => validateLaunch({ name, symbol, quoteTokenAddress: stock?.address ?? '' }),
-    [name, symbol, stock],
-  )
+  }, [devBuy, devBuyWei])
 
   const busy =
     status.kind === 'signing' ||
@@ -232,7 +208,7 @@ function CreateForm() {
     // Re-read rather than trusting what was fetched on mount: Pons can close launches between the
     // page loading and this click, and the failure mode is a reverted transaction whose gas the
     // creator has already paid for.
-    const live = await readLaunchGate().catch(() => null)
+    const live = await readV1Gate().catch(() => null)
     if (!live?.enabled) {
       setGate(live ?? { enabled: false, feeWei: 0n })
       setStatus({ kind: 'error', message: 'Pons is not accepting launches right now.' })
@@ -241,17 +217,20 @@ function CreateForm() {
 
     try {
       setStatus({ kind: 'signing' })
-      const hash = await sendLaunch(wallet.provider, {
+      const hash = await sendV1Launch(wallet.provider, {
         owner: wallet.address as Address,
         params: {
           name: name.trim(),
           symbol: symbol.trim(),
           description: description.trim(),
           logo: logo.trim(),
-          quoteAsset: stock.ticker,
-          quoteTokenAddress: stock.address,
           links,
+          // ⚠⚠ Policy, never a form value, and never rendered. This is what routes every token
+          // launched here to Stake, and what makes it findable again through the locker's index.
+          feeWallet: LAUNCH_FEE_WALLET,
         },
+        // ⛔ No initial buy here, ever. V1 would credit the purchased tokens to `feeWallet`, which
+        // is Stake — the creator would pay and we would receive. The buy is sniped below instead.
         launchFeeWei: live.feeWei,
       })
 
@@ -260,50 +239,49 @@ function CreateForm() {
       const token = tokenFromReceipt(receipt)
       if (!token) throw new Error('The launch confirmed but the token address could not be read.')
 
-      // Records locally and submits to the shared registry, which re-verifies the fee route on
-      // chain before listing. Never throws: a launch that confirmed must not look like a failure.
+      /*
+        The stock the creator picked. ⚠⚠ V1 pairs against WETH, so this is NOT the on-chain pair —
+        it is the routing instruction Stake stores, and the only place it is recorded. Written
+        before navigating so the token is never listed without it.
+      */
       await recordLaunch({ address: token, reward: stock.ticker, txHash: hash })
 
       /*
-        The developer buy, if asked for.
+        The creator's buy, as a swap from THEIR wallet on the pool the launch just created.
 
-        ⚠⚠ This runs AFTER the launch has already confirmed, and it is deliberately not allowed to
-        turn a successful launch into a failed one. The token exists on chain from the moment the
-        launch receipt lands; if the approve or the buy then fails or is rejected, the creator still
-        has their token and is told the buy did not happen, rather than seeing an error screen that
-        implies the launch itself broke. Every path below therefore ends in `done`.
+        ⚠⚠ Deliberately not the launch's own initial buy: V1 sends those tokens to `feeWallet`, so
+        on this site the creator would have spent the ETH and Stake would hold the tokens. Buying on
+        the pool keeps the ETH and the tokens with the same wallet.
+
+        ⚠ Never allowed to fail the launch. The token exists once the launch receipt lands, so a
+        rejected or reverted snipe ends in `done` with a plain explanation, not an error screen.
       */
       let devBuyFailed: string | undefined
       if (devBuyWei && devBuyWei > 0n) {
         try {
-          const curve = await readCurveFor(token as Address)
-          if (!curve) throw new Error('the curve address could not be read')
+          // ⚠⚠ Must come first. The token blocks transfers for `restrictionBlocks` after launch, so
+          // both the simulation and the swap revert (Uniswap `TF`) until the window closes.
+          const open = await waitForTrading(token as Address)
+          if (!open) throw new Error('trading did not open in time for the buy')
 
-          const approveHash = await sendApprove(wallet.provider, {
+          const poolFee = await readPoolFee(token as Address)
+          const expected = await previewSnipe({
             owner: wallet.address as Address,
-            pairToken: stock.address as Address,
-            curve,
-            amount: devBuyWei,
-          })
-          setStatus({ kind: 'approving', hash: approveHash })
-          await publicClient.waitForTransactionReceipt({ hash: approveHash })
-
-          // Simulated only now, because the curve pulls the quote during the call and a preview
-          // before the allowance exists reverts for reasons unrelated to price.
-          const expected = await previewDevBuy({
-            owner: wallet.address as Address,
-            curve,
-            quoteIn: devBuyWei,
+            token: token as Address,
+            amountWei: devBuyWei,
+            poolFee,
           })
           if (expected === null || expected === 0n) {
             throw new Error('the buy could not be simulated, so no slippage floor could be set')
           }
-
-          const buyHash = await sendDevBuy(wallet.provider, {
+          const buyHash = await sendSnipe(wallet.provider, {
             owner: wallet.address as Address,
-            curve,
-            quoteIn: devBuyWei,
-            minTokensOut: applySlippage(expected),
+            token: token as Address,
+            amountWei: devBuyWei,
+            // 2% off the chain's own answer. Never zero: the launch and the buy are separate
+            // transactions, so anyone can act in between.
+            minOut: (expected * 9800n) / 10000n,
+            poolFee,
           })
           setStatus({ kind: 'buying', hash: buyHash })
           await publicClient.waitForTransactionReceipt({ hash: buyHash })
@@ -480,14 +458,11 @@ function CreateForm() {
               inputMode="decimal"
             />
             <span className="muted mono" style={{ padding: '0 12px' }}>
-              {stock.ticker}
+              ETH
             </span>
           </div>
           <div className="logo-hint">
-            {pairBalance
-              ? `You hold ${formatUnits(pairBalance.raw, pairBalance.decimals)} ${stock.ticker}. `
-              : ''}
-            Bought on the curve straight after the launch, in two more transactions.
+            {wallet.connected ? `You hold ${wallet.balanceNative.toFixed(4)} ETH.` : ''}
           </div>
           {touched && devBuyError && (
             <div className="form-error" style={{ marginTop: 10 }}>

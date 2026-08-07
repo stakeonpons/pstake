@@ -37,6 +37,8 @@ import { pinnedAddress } from './pinned'
 import { fetchMarketExtras } from './market'
 import { fetchListed, submitToken } from './registryApi'
 import { isOurs } from './fees'
+import { listV1TokensFor } from './ponsV1'
+import { LAUNCH_FEE_WALLET } from './launchPolicy'
 
 
 import type { Quote } from './stocks'
@@ -311,6 +313,35 @@ export async function buildRegistry(
           ...withUsd(t, nativeUsd, quotes),
           source: 'shared',
           reward: entry.reward ?? t.quoteTicker,
+        }))
+        .catch(() => null),
+    )
+  }
+
+  /*
+    ⭐ Every token launched through THIS SITE, straight off the locker's own reverse index.
+
+    V1 takes the fee wallet as a launch parameter and only this site sets it to Stake's wallet, so
+    `feeRecipientTokens(ourWallet, …)` IS the list of "launched here" — it needs no server and no
+    log scan. That matters twice over: the shared registry verifies membership against the **V2**
+    factory and so rejects every V1 token, and `eth_getLogs` is capped at 2,000 blocks (~3 minutes)
+    on this chain, which rules out sweeping for them.
+
+    ⚠ The picked stock is NOT on chain — V1 pairs against WETH — so `reward` comes from whatever
+    local or shared record exists, and is left null when there is none rather than guessed from the
+    pair, which would print WETH as though stakers were paid in it.
+  */
+  const v1Owned = await listV1TokensFor(LAUNCH_FEE_WALLET).catch(() => [])
+  for (const addr of v1Owned) {
+    if (!take(addr)) continue
+    const known = launched.find((r) => r.address.toLowerCase() === addr.toLowerCase())
+    jobs.push(
+      readToken(addr)
+        .then((t): RegistryToken => ({
+          ...t,
+          ...withUsd(t, nativeUsd, quotes),
+          source: 'launch',
+          reward: known?.reward ?? null,
         }))
         .catch(() => null),
     )

@@ -56,7 +56,12 @@ export const BRAND = {
    */
   pinned: {
     name: 'Stake',
-    symbol: 'Stake',
+    /**
+     * ⚠ This OVERRIDES the on-chain symbol on the card and the token page (`registry.ts`,
+     * `TokenDetail.tsx`), so it has to match what was actually launched or the site contradicts the
+     * chain. The token is **STAKE**; this said `Stake` until 7 Aug.
+     */
+    symbol: 'STAKE',
     /** Shipped artwork, not read from token metadata — this is the brand mark. */
     image: '/pstake-token.png',
   },

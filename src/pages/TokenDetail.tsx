@@ -12,6 +12,8 @@ import { isPinned } from '../lib/pinned'
 import { poolFor, readHarvestable, readPools, type Pool } from '../lib/stakingContract'
 import { stakingModelFor } from '../lib/staking'
 import { explorerToken } from '../lib/chain'
+import { readV1FeeWallet, readV1Fees } from '../lib/ponsV1'
+import { LAUNCH_FEE_WALLET } from '../lib/launchPolicy'
 import { amount as fmtAmount, shortAddr, usd } from '../lib/format'
 import { useToast } from '../lib/toast'
 import { Arrow, Check, Copy, External } from '../components/Icons'
@@ -38,6 +40,8 @@ export default function TokenDetail() {
   const [harvestable, setHarvestable] = useState<Record<string, bigint>>({})
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [nativeUsd, setNativeUsd] = useState<number | null>(null)
+  const [v1Fees, setV1Fees] = useState<{ token: bigint; eth: bigint; empty: boolean } | null>(null)
+  const [v1FeeWallet, setV1FeeWallet] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [broken, setBroken] = useState(false)
@@ -48,6 +52,32 @@ export default function TokenDetail() {
   const normalised = raw?.trim().toLowerCase()
   const valid = !!normalised && isAddress(normalised)
   const address = valid ? getAddress(normalised) : null
+
+  /*
+    Uncollected V1 fees for this token.
+
+    ⚠⚠ There is no view function — `collectFees` is state-changing, so this SIMULATES it as the fee
+    wallet. Two reverts mean different things and are told apart in `readV1Fees`: `NoFeesToCollect`
+    is **zero**, not a failure, and `NotAuthorized` means the simulation used the wrong caller.
+    ⚠ Only shown when the token's fees actually route to Stake, read live rather than assumed —
+    Pons lets a fee wallet be changed, so this is true now, not forever.
+  */
+  useEffect(() => {
+    setV1Fees(null)
+    setV1FeeWallet(null)
+    if (!address) return
+    let cancelled = false
+    void readV1FeeWallet(address as Address).then(async (wallet) => {
+      if (cancelled || !wallet) return
+      setV1FeeWallet(wallet)
+      if (wallet.toLowerCase() !== LAUNCH_FEE_WALLET.toLowerCase()) return
+      const fees = await readV1Fees(address as Address, wallet as Address)
+      if (!cancelled) setV1Fees(fees)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [address])
 
   const load = useCallback(async () => {
     if (!address) return
@@ -334,6 +364,37 @@ export default function TokenDetail() {
             sub={feeTerms && feeTerms.hookFeeBps > 0 ? 'taken by the protocol' : undefined}
           />
         </div>
+
+        {/*
+          Fees this token has earned and not yet collected.
+
+          ⚠⚠ **Uncollected, not lifetime.** Collecting sets it to zero, so this must never be
+          labelled as total earnings — the chain keeps no cumulative figure and one cannot be
+          reconstructed (the RPC caps `eth_getLogs` at 2,000 blocks).
+          ⚠ Shown only when the fee route is Stake's, read live. `null` means the read itself
+          failed and renders a dash rather than a confident zero.
+        */}
+        {v1FeeWallet && v1FeeWallet.toLowerCase() === LAUNCH_FEE_WALLET.toLowerCase() && (
+          <>
+            <h3 style={{ margin: '26px 0 12px' }}>Fees</h3>
+            <div className="grid grid-2">
+              <Stat
+                label={`In ${token.symbol}`}
+                value={v1Fees === null ? '—' : `${fmtAmount(Number(v1Fees.token) / 10 ** token.decimals)} ${token.symbol}`}
+                sub="uncollected, zeroed when claimed"
+              />
+              <Stat
+                label="In ETH"
+                value={v1Fees === null ? '—' : `${fmtAmount(Number(v1Fees.eth) / 1e18)} ETH`}
+                sub={
+                  v1Fees && nativeUsd !== null
+                    ? usd((Number(v1Fees.eth) / 1e18) * nativeUsd)
+                    : undefined
+                }
+              />
+            </div>
+          </>
+        )}
       </section>
 
       {/* ---------------------------------- staking ----------------------------------
