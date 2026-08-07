@@ -82,6 +82,31 @@ contract Deploy is Script {
      * is 6. A single `1e18` constant would set USDG's floor to a TRILLION USDG and make its pool
      * unusable, so this reads `decimals()` rather than assuming.
      */
+    /**
+     * The $STAKE token, and the pool where staking it earns more of it.
+     *
+     * ⭐ Funded by **`depositRewards`**, NOT by `harvest`. `harvest` pulls from Pons's **V2** fee
+     * escrow, and $STAKE is a **V1** launch whose fees accrue in the locker's LP position instead —
+     * a completely different path. The operator collects there and deposits here, which is why
+     * `setDepositor` below matters and why this pool gets **no split**: a split exists to divide an
+     * escrow balance, and there is no escrow balance in $STAKE. `harvest(STAKE)` refusing is correct.
+     */
+    address constant STAKE_TOKEN = 0x831758E8C9C043bE7DEB4D74a4Cf581599aeffe5;
+
+    /**
+     * Floor on a single $STAKE position.
+     *
+     * ⚠ A judgement call, not a derived number, and deliberately modest. Its job is to price
+     * front-running a reward deposit — someone staking dust the moment before one lands takes a
+     * full share of it. That risk is smaller here than for the stock pools because `depositRewards`
+     * is **allowlisted**, so the operator picks the moment rather than the attacker; it is not zero,
+     * because a deposit is still visible in the mempool.
+     *
+     * ➤ Tune with `setMinStake(poolId, …)` at any time. It needs no redeploy, so do not treat this
+     * value as settled.
+     */
+    uint256 constant STAKE_MIN = 1_000e18;
+
     function minStakeFor(address token) internal view returns (uint256) {
         return 10 ** IERC20Decimals(token).decimals();
     }
@@ -113,6 +138,23 @@ contract Deploy is Script {
             staking.setSplit(STOCKS[i], ids, bps);
         }
 
+        /*
+          Stake $STAKE, earn $STAKE.
+
+          ⚠⚠ Stake asset and reward asset are the SAME token, so principal and rewards share one
+          balance in this contract. That is safe because payouts are computed from the
+          `accPerWeight` accumulator rather than from the contract's balance — the configuration is
+          covered by the existing suite (`createPool(nvda, nvda, …)`) and by `StakePool.t.sol`,
+          which drives it with the real token on a fork.
+        */
+        uint256 stakePool = staking.createPool(STAKE_TOKEN, STAKE_TOKEN, STAKE_MIN);
+        console.log("pool", stakePool, STAKE_TOKEN);
+        console.log("  ^ stake $STAKE, earn $STAKE - funded by depositRewards, not harvest");
+
+        // The operator collects V1 fees from the locker and deposits them here, so that wallet has
+        // to be allowed to. ⚠ Without this the pool exists and can never be funded.
+        staking.setDepositor(OWNER, true);
+
         if (OWNER != deployer) staking.transferOwnership(OWNER);
 
         vm.stopBroadcast();
@@ -128,5 +170,10 @@ contract Deploy is Script {
         console.log("");
         console.log("Fees only arrive once a token launches naming this address as its");
         console.log("creatorFeeRecipient. Set VITE_FEE_RECIPIENT to it before the first launch.");
+        console.log("");
+        console.log("The $STAKE pool is funded by hand, from V1 fees you collect:");
+        console.log("  1. locker.collectFees(STAKE)      -> pays your wallet");
+        console.log("  2. STAKE.approve(staking, amount)");
+        console.log("  3. staking.depositRewards(<poolId>, amount)");
     }
 }
