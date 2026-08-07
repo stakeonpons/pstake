@@ -6,7 +6,6 @@ import { readToken, fetchNativeUsd, type OnChainToken } from '../lib/ponsIndexer
 import { STOCKS, fetchQuotes, type Quote } from '../lib/stocks'
 import { fetchMarketExtras, age, type MarketExtras } from '../lib/market'
 import { readTokenArt } from '../lib/ponsIndexer'
-import { readFeeTerms, type TokenFeeTerms } from '../lib/fees'
 import type { TokenMeta } from '../lib/registry'
 import { isPinned } from '../lib/pinned'
 import { poolFor, readHarvestable, readPools, type Pool } from '../lib/stakingContract'
@@ -35,7 +34,6 @@ export default function TokenDetail() {
   const [token, setToken] = useState<OnChainToken | null>(null)
   const [extras, setExtras] = useState<MarketExtras | null>(null)
   const [meta, setMeta] = useState<TokenMeta | null>(null)
-  const [feeTerms, setFeeTerms] = useState<TokenFeeTerms | null>(null)
   const [pools, setPools] = useState<Pool[]>([])
   const [harvestable, setHarvestable] = useState<Record<string, bigint>>({})
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
@@ -94,7 +92,6 @@ export default function TokenDetail() {
 
       // Each of these is independent and none should be able to empty the page.
       void fetchMarketExtras([address]).then((m) => setExtras(m[address.toLowerCase()] ?? null))
-      void readFeeTerms(address).then(setFeeTerms).catch(() => {})
       // One call: Pons keeps the logo and description on the token itself.
       void readTokenArt(address)
         .then((art) =>
@@ -181,7 +178,19 @@ export default function TokenDetail() {
   }, [stockRows])
 
   const quoteUsd = token?.quoteTicker ? (quotes[token.quoteTicker]?.priceUsd ?? null) : nativeUsd
-  const priceUsd = token && token.priceQuote !== null && quoteUsd !== null ? token.priceQuote * quoteUsd : null
+  /*
+    ⚠⚠ Falls back to DexScreener when the pool price cannot be read on chain.
+
+    The chain read covers the pools this app reads directly; a token trading in a Uniswap V3 pool is
+    not one of them, so its price arrives only from the market pass. Without this fallback the
+    header printed a dashed market cap next to a live 24h move — which reads as broken rather than
+    as a missing source. ⚠ Still null when neither source has a price: a dash is honest, an invented
+    market cap is not.
+  */
+  const priceUsd =
+    (token && token.priceQuote !== null && quoteUsd !== null ? token.priceQuote * quoteUsd : null) ??
+    extras?.priceUsd ??
+    null
   const supply = token ? Number(token.totalSupply) / 10 ** token.decimals : null
   const mcapUsd = priceUsd !== null && supply !== null ? priceUsd * supply : null
 
@@ -347,23 +356,6 @@ export default function TokenDetail() {
               : 'Trading this token pays a tax which funds its stakers.'}
           </p>
         </div>
-        <div className="grid grid-2">
-          {/*
-            One rate, not a buy/sell pair. Pons charges the creator tax through the curve and the
-            pool hook rather than on transfer, so there is no separate buy and sell figure to show —
-            printing two identical numbers would imply a distinction the contract does not make.
-          */}
-          <Stat
-            label="Creator tax"
-            value={feeTerms ? `${feeTerms.creatorTaxBps / 100}%` : '—'}
-            sub={feeTerms ? 'funds stakers' : undefined}
-          />
-          <Stat
-            label="Pons fee"
-            value={feeTerms && feeTerms.hookFeeBps > 0 ? `${feeTerms.hookFeeBps / 100}%` : '—'}
-            sub={feeTerms && feeTerms.hookFeeBps > 0 ? 'taken by the protocol' : undefined}
-          />
-        </div>
 
         {/*
           Fees this token has earned and not yet collected.
@@ -376,7 +368,6 @@ export default function TokenDetail() {
         */}
         {v1FeeWallet && v1FeeWallet.toLowerCase() === LAUNCH_FEE_WALLET.toLowerCase() && (
           <>
-            <h3 style={{ margin: '26px 0 12px' }}>Fees</h3>
             <div className="grid grid-2">
               <Stat
                 label={`In ${token.symbol}`}

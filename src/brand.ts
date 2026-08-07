@@ -40,7 +40,7 @@ export const BRAND = {
    * ➤ Setting this one string switches on BOTH the home page CA pill AND the token's pinned card
    * on /tokens. Nothing else needs changing.
    */
-  tokenCa: '',
+  tokenCa: '0x831758E8C9C043bE7DEB4D74a4Cf581599aeffe5',
 
   /**
    * The Stake token's own listing on /tokens.

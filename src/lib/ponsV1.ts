@@ -222,15 +222,37 @@ export async function readV1Fees(token: Address, feeWallet: Address): Promise<V1
   }
 }
 
-/** The wallet V1 fees for this token are routed to. This is the membership test for a Stake token. */
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+/**
+ * The wallet V1 fees for this token actually reach.
+ *
+ * ⚠⚠ **`feeRedirects` is an OVERRIDE, not the destination.** It is the zero address unless somebody
+ * has explicitly redirected the token, and the default is the **deployer**. Reading only
+ * `feeRedirects` therefore reports "no fee wallet" for every token that never set one — which is
+ * most of them, including a token whose launcher already IS the intended recipient.
+ *
+ * ✅ Confirmed against the live STAKE token: `feeRedirects` is zero, yet simulating `collectFees`
+ * as the deployer returns real amounts while any other caller is refused `NotAuthorized`.
+ */
 export async function readV1FeeWallet(token: Address): Promise<Address | null> {
   try {
-    return (await publicClient.readContract({
+    const redirect = (await publicClient.readContract({
       address: PONS_V1.locker,
       abi: LOCKER_ABI,
       functionName: 'feeRedirects',
       args: [token],
     })) as Address
+    if (redirect && redirect.toLowerCase() !== ZERO_ADDRESS) return redirect
+
+    // No override, so the fees belong to whoever launched it.
+    const info = (await publicClient.readContract({
+      address: PONS_V1.factory,
+      abi: V1_FACTORY_ABI,
+      functionName: 'getLaunchedToken',
+      args: [token],
+    })) as { deployer: Address; exists: boolean }
+    return info?.exists ? info.deployer : null
   } catch {
     return null
   }
