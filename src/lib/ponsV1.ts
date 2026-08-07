@@ -30,7 +30,7 @@
  * claimed.
  */
 import { encodeFunctionData, parseAbi, type Address, type Hex } from 'viem'
-import { publicClient } from './chain'
+import { publicClient, BLOCKSCOUT } from './chain'
 
 /** PonsLaunchFactory (V1). Verified source on Blockscout. */
 export const PONS_V1 = {
@@ -461,5 +461,74 @@ export async function waitForTrading(token: Address, timeoutMs = 30_000): Promis
     if (now !== null && now > endBlock) return true
     if (Date.now() > deadline) return false
     await new Promise((r) => setTimeout(r, 400))
+  }
+}
+
+/* --------------------------------- collected fees --------------------------------- */
+
+/**
+ * Fees this token has actually PAID OUT to its recipient, over its whole life.
+ *
+ * ⚠⚠ **Nothing on chain stores this.** `collectFees` transfers and zeroes; there is no cumulative
+ * counter to read, and `eth_getLogs` is capped at 2,000 blocks (~3 minutes) on this chain, so the
+ * history cannot be swept from the browser either. It is therefore summed from the locker's
+ * `FeesClaimed` events through **Blockscout**, which indexes them and serves CORS `*`.
+ *
+ * ⚠ `token` is an indexed argument, so the query is filtered server-side to this one token rather
+ * than paging every launch's events.
+ *
+ * ⚠⚠ **Blockscout caps this response at 1000 logs and IGNORES the `page` parameter** — verified:
+ * `page=1` and `page=2` return byte-identical ranges. A token collected daily would take ~3 years
+ * to reach that, so the figure is exact in practice, but it is a ceiling and not a guarantee.
+ * `capped` says so rather than letting a truncated total pass as complete.
+ *
+ * ⚠ Amounts are mapped by comparing `token0`/`token1` in the event body, never by assuming an
+ * order — the pool sorts by address, so assuming would swap the two for half of all tokens.
+ */
+const FEES_CLAIMED_TOPIC = '0x1547f2bd1a244399782ebde22047e2ede698ecdc4d6c7d4b3c4e2435f1e47f7a'
+
+export type V1Collected = { token: bigint; eth: bigint; claims: number; capped: boolean }
+
+export async function readV1CollectedFees(token: Address): Promise<V1Collected | null> {
+  const padded = `0x${'0'.repeat(24)}${token.slice(2).toLowerCase()}`
+  const url =
+    `${BLOCKSCOUT}/api?module=logs&action=getLogs&fromBlock=0&toBlock=latest` +
+    `&address=${PONS_V1.locker}&topic0=${FEES_CLAIMED_TOPIC}&topic1=${padded}&topic0_1_opr=and`
+
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const body = (await res.json()) as { status?: string; result?: unknown }
+    // Blockscout answers status "0" with a string result when there are simply no matches. That is
+    // an empty history, not a failure, and must not render as a dash.
+    if (!Array.isArray(body.result)) {
+      return { token: 0n, eth: 0n, claims: 0, capped: false }
+    }
+
+    const logs = body.result as { data: string }[]
+    let tokenSum = 0n
+    let ethSum = 0n
+
+    for (const log of logs) {
+      const hex = (log.data ?? '').slice(2)
+      if (hex.length < 64 * 6) continue
+      const word = (i: number) => hex.slice(i * 64, (i + 1) * 64)
+      const addr0 = `0x${word(0).slice(24)}`
+      const amount0 = BigInt(`0x${word(2)}`)
+      const amount1 = BigInt(`0x${word(3)}`)
+
+      // token0 is whichever of the pair sorts first, so decide by address rather than by position.
+      if (addr0.toLowerCase() === token.toLowerCase()) {
+        tokenSum += amount0
+        ethSum += amount1
+      } else {
+        tokenSum += amount1
+        ethSum += amount0
+      }
+    }
+
+    return { token: tokenSum, eth: ethSum, claims: logs.length, capped: logs.length >= 1000 }
+  } catch {
+    return null
   }
 }

@@ -11,7 +11,7 @@ import { isPinned } from '../lib/pinned'
 import { poolFor, readHarvestable, readPools, type Pool } from '../lib/stakingContract'
 import { stakingModelFor } from '../lib/staking'
 import { explorerToken } from '../lib/chain'
-import { readV1FeeWallet, readV1Fees } from '../lib/ponsV1'
+import { readV1FeeWallet, readV1CollectedFees, type V1Collected } from '../lib/ponsV1'
 import { LAUNCH_FEE_WALLET } from '../lib/launchPolicy'
 import { amount as fmtAmount, shortAddr, usd } from '../lib/format'
 import { useToast } from '../lib/toast'
@@ -38,7 +38,7 @@ export default function TokenDetail() {
   const [harvestable, setHarvestable] = useState<Record<string, bigint>>({})
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [nativeUsd, setNativeUsd] = useState<number | null>(null)
-  const [v1Fees, setV1Fees] = useState<{ token: bigint; eth: bigint; empty: boolean } | null>(null)
+  const [v1Fees, setV1Fees] = useState<V1Collected | null>(null)
   const [v1FeeWallet, setV1FeeWallet] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -54,9 +54,9 @@ export default function TokenDetail() {
   /*
     Uncollected V1 fees for this token.
 
-    ⚠⚠ There is no view function — `collectFees` is state-changing, so this SIMULATES it as the fee
-    wallet. Two reverts mean different things and are told apart in `readV1Fees`: `NoFeesToCollect`
-    is **zero**, not a failure, and `NotAuthorized` means the simulation used the wrong caller.
+    ⚠⚠ COLLECTED, not uncollected. Nothing on chain stores a lifetime total — `collectFees`
+    transfers and zeroes — so this is summed from the locker's `FeesClaimed` events via Blockscout.
+    See `readV1CollectedFees` for the 1000-log ceiling.
     ⚠ Only shown when the token's fees actually route to Stake, read live rather than assumed —
     Pons lets a fee wallet be changed, so this is true now, not forever.
   */
@@ -69,7 +69,7 @@ export default function TokenDetail() {
       if (cancelled || !wallet) return
       setV1FeeWallet(wallet)
       if (wallet.toLowerCase() !== LAUNCH_FEE_WALLET.toLowerCase()) return
-      const fees = await readV1Fees(address as Address, wallet as Address)
+      const fees = await readV1CollectedFees(address as Address)
       if (!cancelled) setV1Fees(fees)
     })
     return () => {
@@ -382,7 +382,7 @@ export default function TokenDetail() {
               <Stat
                 label={`In ${token.symbol}`}
                 value={v1Fees === null ? '—' : `${fmtAmount(Number(v1Fees.token) / 10 ** token.decimals)} ${token.symbol}`}
-                sub="uncollected, zeroed when claimed"
+                sub="collected to date"
               />
               <Stat
                 label="In ETH"
@@ -403,7 +403,7 @@ export default function TokenDetail() {
               <Stat
                 label="Total"
                 value={feesTotalUsd !== null ? usd(feesTotalUsd) : '—'}
-                sub={feesTotalUsd !== null ? 'uncollected, in USD' : undefined}
+                sub={feesTotalUsd !== null ? 'collected to date, in USD' : undefined}
               />
             </div>
           </>
