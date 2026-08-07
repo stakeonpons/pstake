@@ -66,6 +66,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  /**
+   * Re-read the chain the wallet is actually on.
+   *
+   * ⚠⚠ `eth_chainId` used to be read in exactly ONE place — `attach`, which runs only on connect.
+   * After that the value could change only through a `chainChanged` event, so a wallet that does
+   * not emit one (or that exposes no `.on` at all, which the listener effect silently tolerates)
+   * left the app frozen on whatever chain it saw at connect time. The visible symptom was a
+   * successful switch to Robinhood Chain with the "Wrong network" banner still showing, and no way
+   * to clear it but a reload.
+   *
+   * ⚠ A failed read keeps the last known value on purpose: not being able to ask is not evidence
+   * of being on a different chain, and blanking it would flash the banner off and on.
+   */
+  const syncChain = useCallback(async (p: Eip1193Provider) => {
+    try {
+      const cid = (await p.request({ method: 'eth_chainId' })) as string
+      setChainId(Number(BigInt(cid)))
+    } catch {
+      /* keep the last known value */
+    }
+  }, [])
+
   const attach = useCallback(
     async (detail: ProviderDetail, accounts: string[]) => {
       const p = detail.provider
@@ -75,15 +97,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setAddress(addr)
       localStorage.setItem(LAST_WALLET, detail.info.rdns)
 
-      try {
-        const cid = (await p.request({ method: 'eth_chainId' })) as string
-        setChainId(Number(BigInt(cid)))
-      } catch {
-        setChainId(null)
-      }
+      // Cleared first because this may be a different wallet than the one just detached, and
+      // carrying its chain over would be wrong. Null reads as "unknown" and shows no banner.
+      setChainId(null)
+      await syncChain(p)
       if (addr) await refreshBalance(p, addr)
     },
-    [refreshBalance],
+    [refreshBalance, syncChain],
   )
 
   const connectTo = useCallback(
@@ -126,10 +146,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           await provider.request({ method: 'wallet_addEthereumChain', params: [ADD_CHAIN_PARAMS] })
         } catch {
           setError(`Could not add ${BRAND.chain} to your wallet.`)
+          return
         }
       }
     }
-  }, [provider])
+    // ⚠ Read the chain back rather than assuming the request landed. Wallets resolve
+    // `wallet_switchEthereumChain` before the switch has taken effect, and some never emit
+    // `chainChanged` at all — trusting either is what left the banner up after a real switch.
+    await syncChain(provider)
+  }, [provider, syncChain])
 
   /** Reconnect silently if this browser already authorised a wallet. */
   useEffect(() => {
@@ -174,6 +199,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       provider.removeListener?.('chainChanged', onChain)
     }
   }, [provider, address, disconnect, refreshBalance])
+
+  /**
+   * Re-read the chain whenever this tab regains focus.
+   *
+   * ⭐ This is the safety net that does not depend on the wallet cooperating. A wallet is a separate
+   * popup or window, so the ordinary way to change network is to leave this page, change it there,
+   * and come back — and `chainChanged` is not guaranteed to arrive for that. Re-reading on focus
+   * makes a stale banner correct itself instead of needing a reload.
+   */
+  useEffect(() => {
+    if (!provider) return
+    const resync = () => {
+      if (document.visibilityState === 'visible') void syncChain(provider)
+    }
+    window.addEventListener('focus', resync)
+    document.addEventListener('visibilitychange', resync)
+    return () => {
+      window.removeEventListener('focus', resync)
+      document.removeEventListener('visibilitychange', resync)
+    }
+  }, [provider, syncChain])
 
   const value = useMemo<WalletState>(
     () => ({
