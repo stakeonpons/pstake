@@ -17,8 +17,9 @@
  * confirm before sending the stake, or the second transaction races the first.
  */
 
-import { parseAbi, type Address } from 'viem'
+import { erc20Abi, parseAbi, type Address } from 'viem'
 import { publicClient } from './chain'
+import { STOCKS } from './stocks'
 
 const ADDRESS = (import.meta.env.VITE_STAKING_ADDRESS as string | undefined) ?? ''
 
@@ -30,11 +31,12 @@ export function stakingAddress(): Address | null {
 // prettier-ignore
 export const STAKING_ABI = parseAbi([
   'function poolCount() view returns (uint256)',
-  'function pools(uint256 poolId) view returns (address stakeToken, address rewardToken, uint256 totalStaked, uint256 totalWeight, uint256 queued)',
+  'function pools(uint256 poolId) view returns (address stakeToken, address rewardToken, uint256 totalStaked, uint256 totalWeight, uint256 queued, uint256 minStake)',
   'function positionCount(uint256 poolId, address user) view returns (uint256)',
   'function positions(uint256 poolId, address user, uint256 positionId) view returns (uint256 amount, uint256 weight, uint64 unlockAt, uint32 tierDays, bool withdrawn, uint256 pending)',
   'function pending(uint256 poolId, address user, uint256 positionId) view returns (uint256)',
   'function stakingOpen() view returns (bool)',
+  'function harvestable(address rewardToken) view returns (uint256)',
   'function stake(uint256 poolId, uint256 amount, uint32 termDays) returns (uint256)',
   'function claim(uint256 poolId, uint256 positionId) returns (uint256)',
   'function withdraw(uint256 poolId, uint256 positionId) returns (uint256, uint256)',
@@ -51,6 +53,15 @@ export type Pool = {
   rewardToken: Address
   totalStaked: bigint
   totalWeight: bigint
+  /**
+   * The smallest position this pool accepts, in stake-token units.
+   *
+   * ⚠⚠ Not decoration. `stake` reverts `BelowMinimum` under it, and the floor is a whole unit of
+   * the asset — one NVDA, one SPY — so a staker entering a fraction is the ordinary case, not an
+   * odd one. It has to be shown and checked here, or the page takes an approval and then fails the
+   * transaction it was for.
+   */
+  minStake: bigint
 }
 
 export type Position = {
@@ -82,9 +93,28 @@ export async function readPools(): Promise<Pool[]> {
       rewardToken: r[1],
       totalStaked: r[2],
       totalWeight: r[3],
+      minStake: r[5],
     }))
   } catch {
     return []
+  }
+}
+
+/**
+ * Whether the contract is currently accepting stakes.
+ *
+ * ⚠ Null means "no answer" — no contract configured, or the read failed — and is deliberately
+ * distinct from `false`. A deployed contract starts CLOSED on purpose so its pools can be checked
+ * on chain before anybody's money is in them, and a page that cannot tell the two apart either
+ * hides staking that works or offers staking that reverts.
+ */
+export async function readStakingOpen(): Promise<boolean | null> {
+  const address = stakingAddress()
+  if (!address) return null
+  try {
+    return await publicClient.readContract({ address, abi: STAKING_ABI, functionName: 'stakingOpen' })
+  } catch {
+    return null
   }
 }
 
@@ -141,6 +171,80 @@ export async function readPositions(user: Address, pools: Pool[]): Promise<Posit
   } catch {
     return []
   }
+}
+
+/**
+ * What a harvest of each asset would pay out to stakers right now, keyed by lowercased address.
+ *
+ * This is the escrow balance owed to the contract plus anything left over from the last split — the
+ * money that is waiting for somebody to call `harvest`. It is a CLAIMABLE figure, not a lifetime
+ * total: the contract keeps no cumulative "rewards distributed", and this chain's 2,000-block log
+ * cap means one cannot be reconstructed by scanning either. Nothing may label it as total or earned.
+ */
+export async function readHarvestable(assets: Address[]): Promise<Record<string, bigint>> {
+  const address = stakingAddress()
+  if (!address || !assets.length) return {}
+  const out: Record<string, bigint> = {}
+  await Promise.all(
+    assets.map(async (asset) => {
+      try {
+        out[asset.toLowerCase()] = await publicClient.readContract({
+          address,
+          abi: STAKING_ABI,
+          functionName: 'harvestable',
+          args: [asset],
+        })
+      } catch {
+        /* absent rather than zero: an unread asset is not the same as an empty one */
+      }
+    }),
+  )
+  return out
+}
+
+export type AssetMeta = { symbol: string; decimals: number }
+
+/**
+ * Symbol and decimals for every asset a set of pools touches, keyed by lowercased address.
+ *
+ * ⚠⚠ Decimals are read, never assumed. USDG is **6** where the seven equities are 18, so a position
+ * formatted against a hard-coded 18 misprints it by a factor of a trillion. The stock table already
+ * carries the right value for the assets it lists; anything else — a launched token's own pool — is
+ * read from the token.
+ *
+ * An asset that answers neither is simply absent from the map, and callers fall back to showing the
+ * raw address rather than a number that might be wrong.
+ */
+export async function readPoolAssets(pools: Pool[]): Promise<Record<string, AssetMeta>> {
+  const wanted = new Set<string>()
+  for (const p of pools) {
+    wanted.add(p.stakeToken.toLowerCase())
+    wanted.add(p.rewardToken.toLowerCase())
+  }
+
+  const out: Record<string, AssetMeta> = {}
+  const unknown: Address[] = []
+  for (const addr of wanted) {
+    const stock = STOCKS.find((s) => s.address?.toLowerCase() === addr)
+    if (stock) out[addr] = { symbol: stock.ticker, decimals: stock.decimals }
+    else unknown.push(addr as Address)
+  }
+
+  await Promise.all(
+    unknown.map(async (address) => {
+      try {
+        const [symbol, decimals] = await Promise.all([
+          publicClient.readContract({ address, abi: erc20Abi, functionName: 'symbol' }),
+          publicClient.readContract({ address, abi: erc20Abi, functionName: 'decimals' }),
+        ])
+        out[address.toLowerCase()] = { symbol, decimals }
+      } catch {
+        /* left out of the map on purpose; see the header */
+      }
+    }),
+  )
+
+  return out
 }
 
 /** The pool that takes a given asset, or null when there is none. */

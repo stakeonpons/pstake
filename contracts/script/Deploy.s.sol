@@ -35,7 +35,7 @@ interface IERC20Decimals {
  */
 contract Deploy is Script {
     /// The wallet that will own the contract and administer pools.
-    address constant OWNER = 0x992774a622E2eA40e193FE967475e58648eDbC48;
+    address constant OWNER = 0xD7634C893c7513244Cd6F28aA3678534da76be09;
 
     /**
      * Pons V2's fee escrow on Robinhood Chain.

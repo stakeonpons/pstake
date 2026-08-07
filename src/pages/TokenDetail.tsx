@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { isAddress, getAddress } from 'viem'
+import { isAddress, getAddress, type Address } from 'viem'
 import { BRAND } from '../brand'
 import { readToken, fetchNativeUsd, type OnChainToken } from '../lib/ponsIndexer'
 import { STOCKS, fetchQuotes, type Quote } from '../lib/stocks'
@@ -9,7 +9,7 @@ import { readTokenArt } from '../lib/ponsIndexer'
 import { readFeeTerms, type TokenFeeTerms } from '../lib/fees'
 import type { TokenMeta } from '../lib/registry'
 import { isPinned } from '../lib/pinned'
-import { poolFor, readPools, type Pool } from '../lib/stakingContract'
+import { poolFor, readHarvestable, readPools, type Pool } from '../lib/stakingContract'
 import { stakingModelFor } from '../lib/staking'
 import { explorerToken } from '../lib/chain'
 import { amount as fmtAmount, shortAddr, usd } from '../lib/format'
@@ -35,8 +35,9 @@ export default function TokenDetail() {
   const [meta, setMeta] = useState<TokenMeta | null>(null)
   const [feeTerms, setFeeTerms] = useState<TokenFeeTerms | null>(null)
   const [pools, setPools] = useState<Pool[]>([])
+  const [harvestable, setHarvestable] = useState<Record<string, bigint>>({})
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
-  const [nativeUsd, setBnbUsd] = useState<number | null>(null)
+  const [nativeUsd, setNativeUsd] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [broken, setBroken] = useState(false)
@@ -52,14 +53,14 @@ export default function TokenDetail() {
     if (!address) return
     setError(null)
     try {
-      const [t, q, bnb] = await Promise.all([
+      const [t, q, native] = await Promise.all([
         readToken(address),
         fetchQuotes().catch((): Record<string, Quote> => ({})),
         fetchNativeUsd(),
       ])
       setToken(t)
       setQuotes(q)
-      setBnbUsd(bnb)
+      setNativeUsd(native)
 
       // Each of these is independent and none should be able to empty the page.
       void fetchMarketExtras([address]).then((m) => setExtras(m[address.toLowerCase()] ?? null))
@@ -87,23 +88,67 @@ export default function TokenDetail() {
 
   useEffect(() => {
     void readPools().then(setPools)
+    // Only the stocks: these are the assets fees can arrive in, and the only ones with a pool to
+    // pay. Both reads answer empty until the contract is configured.
+    void readHarvestable(STOCKS.filter((s) => s.address).map((s) => s.address as Address)).then(
+      setHarvestable,
+    )
   }, [])
 
   /**
-   * Staking figures for this token, read from the pool.
+   * Staking figures for a LAUNCHED token, which stakes itself into a single pool.
    *
-   * For a launched token that is its own pool. For the Stake token there is no single pool,
-   * because its stakers hold stocks, so the totals are summed across every stock pool.
+   * ⛔ Not used for the Stake token. Its stakers hold stocks, so there is no single pool and no
+   * single unit — the totals live in `stockRows` below, which is where the decimals differ.
    */
   const staking = useMemo(() => {
-    if (!token) return { totalStaked: 0n, decimals: 18, symbol: '' }
-    if (stakingModelFor(token.address) === 'pstake') {
-      const total = pools.reduce((sum, p) => sum + p.totalStaked, 0n)
-      return { totalStaked: total, decimals: 18, symbol: '' }
-    }
+    if (!token) return { totalStaked: 0n }
     const pool = poolFor(pools, token.address)
-    return { totalStaked: pool?.totalStaked ?? 0n, decimals: token.decimals, symbol: token.symbol }
+    return { totalStaked: pool?.totalStaked ?? 0n }
   }, [pools, token])
+
+  /**
+   * Per-stock staking figures for the Stake token's page.
+   *
+   * ⚠⚠ **Every asset is converted in its OWN decimals.** USDG is 6 where the equities are 18, so
+   * adding raw base units across these pools would make a USDG position contribute about 1e-12 of a
+   * unit and vanish — and the sum would be in no unit at all. Amounts are formatted per asset here,
+   * and the only figure aggregated across them is a USD value.
+   */
+  const stockRows = useMemo(() => {
+    return STOCKS.filter((s) => s.address).map((s) => {
+      const pool = poolFor(pools, s.address!)
+      const staked = pool?.totalStaked ?? 0n
+      const waiting = harvestable[s.address!.toLowerCase()] ?? 0n
+      const price = quotes[s.ticker]?.priceUsd ?? null
+      const units = Number(staked) / 10 ** s.decimals
+      return {
+        stock: s,
+        staked,
+        units,
+        waitingUnits: Number(waiting) / 10 ** s.decimals,
+        price,
+        valueUsd: price != null ? units * price : null,
+      }
+    })
+  }, [pools, harvestable, quotes])
+
+  /**
+   * The staked and claimable totals across every stock, in USD.
+   *
+   * ⚠ A stock holding a real balance whose price could not be read makes the total **unknown**, not
+   * smaller: silently omitting it would print a number that looks like a measurement and is short by
+   * however much that pool holds. Null renders as a dash.
+   */
+  const stakedTotalUsd = useMemo(() => {
+    if (stockRows.some((r) => r.staked > 0n && r.price == null)) return null
+    return stockRows.reduce((sum, r) => sum + (r.valueUsd ?? 0), 0)
+  }, [stockRows])
+
+  const waitingTotalUsd = useMemo(() => {
+    if (stockRows.some((r) => r.waitingUnits > 0 && r.price == null)) return null
+    return stockRows.reduce((sum, r) => sum + (r.price != null ? r.waitingUnits * r.price : 0), 0)
+  }, [stockRows])
 
   const quoteUsd = token?.quoteTicker ? (quotes[token.quoteTicker]?.priceUsd ?? null) : nativeUsd
   const priceUsd = token && token.priceQuote !== null && quoteUsd !== null ? token.priceQuote * quoteUsd : null
@@ -303,10 +348,24 @@ export default function TokenDetail() {
             </p>
           </div>
 
+          {/*
+            ⛔ A staker COUNT and a lifetime "rewards distributed" used to sit here as literal
+            zeroes. Neither can be read: the contract does not enumerate stakers, it keeps no
+            cumulative payout, and this chain's 2,000-block log cap rules out reconstructing either
+            by scanning. A hard-coded zero is not a placeholder once pools hold money — it is a
+            wrong number stated confidently. What replaced them is read from the contract.
+          */}
           <div className="grid grid-3">
-            <Stat label="Total staked" value={usd(0)} />
-            <Stat label="Stakers" value="0" />
-            <Stat label="Rewards distributed" value={usd(0)} />
+            <Stat
+              label="Total staked"
+              value={stakedTotalUsd !== null ? usd(stakedTotalUsd, { compact: true }) : '—'}
+              sub="across every stock"
+            />
+            <Stat
+              label="Waiting to be paid out"
+              value={waitingTotalUsd !== null ? usd(waitingTotalUsd, { compact: true }) : '—'}
+              sub="claimable by stakers"
+            />
           </div>
 
           <div className="table-wrap" style={{ marginTop: 22 }}>
@@ -316,24 +375,27 @@ export default function TokenDetail() {
                   <th>Stock</th>
                   <th className="right">Price</th>
                   <th className="right">Total staked</th>
-                  <th className="right">Stakers</th>
+                  <th className="right">Waiting</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {STOCKS.filter((s) => s.address).map((s) => (
-                  <tr key={s.ticker}>
+                {stockRows.map((r) => (
+                  <tr key={r.stock.ticker}>
                     <td>
                       <div className="tk">
-                        <StockBadge ticker={s.ticker} to={false} />
-                        <span className="tk-sub">{s.company}</span>
+                        <StockBadge ticker={r.stock.ticker} to={false} />
+                        <span className="tk-sub">{r.stock.company}</span>
                       </div>
                     </td>
+                    <td className="right mono">{r.price != null ? usd(r.price) : '—'}</td>
                     <td className="right mono">
-                      {quotes[s.ticker]?.priceUsd != null ? usd(quotes[s.ticker].priceUsd) : '—'}
+                      {fmtAmount(r.units)}
+                      {r.valueUsd !== null && r.units > 0 && (
+                        <div className="tk-sub">{usd(r.valueUsd, { compact: true })}</div>
+                      )}
                     </td>
-                    <td className="right mono">0</td>
-                    <td className="right mono">0</td>
+                    <td className="right mono">{fmtAmount(r.waitingUnits)}</td>
                     <td className="right">
                       <Link className="btn btn-ghost" to="/stake">
                         Stake
@@ -357,6 +419,8 @@ export default function TokenDetail() {
           <div className="grid grid-3">
             <Stat
               label="Total staked"
+              // This branch is a launched token staked into its own pool, so the stake asset IS this
+              // token and its decimals are the right ones to divide by.
               value={`${fmtAmount(Number(staking.totalStaked) / 10 ** token.decimals)} ${token.symbol}`}
             />
             <Stat

@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { parseUnits, type Address } from 'viem'
+import { formatUnits, parseUnits, type Address } from 'viem'
 import { BRAND, LOCK_TIERS } from '../brand'
 import { Arrow, Lock, Mark, Wallet } from '../components/Icons'
 import { Empty, Notice, StockBadge } from '../components/Ui'
 import { useWallet, useWrongChain } from '../lib/wallet'
 import { buildRegistry, type RegistryToken } from '../lib/registry'
 import { PREVIEW_BALANCES, previewOn } from '../lib/preview'
-import { ensureAllowance, poolFor, readPools, sendStake, type Pool } from '../lib/stakingContract'
+import {
+  ensureAllowance,
+  poolFor,
+  readPools,
+  readStakingOpen,
+  sendStake,
+  type Pool,
+} from '../lib/stakingContract'
 import { publicClient } from '../lib/chain'
 import { isStakeable } from '../lib/staking'
 import { fetchNativeUsd, readBalances } from '../lib/ponsIndexer'
@@ -17,7 +24,7 @@ import { amount as fmtAmount, usd } from '../lib/format'
 /**
  * Two things can be staked here, and they are paid from completely different pots.
  *
- *  - `bstock`  — a stock. Rewards come from **the Stake token's own fees**, which are used to buy
+ *  - `stock`  — a stock. Rewards come from **the Stake token's own fees**, which are used to buy
  *                stocks and split across everyone staking one.
  *  - `token`   — a token launched through Stake. Rewards come from **that token's own trading
  *                fees**, paid in the single stock it was paired against.
@@ -33,7 +40,7 @@ type StakeState =
   | { kind: 'error'; message: string }
 
 type Holding = {
-  kind: 'bstock' | 'token'
+  kind: 'stock' | 'token'
   address: Address
   symbol: string
   name: string
@@ -54,7 +61,7 @@ function previewHoldings(listed: RegistryToken[], quotes: Record<string, Quote>)
   const stocks: Holding[] = STOCKS.filter((s) => s.address && PREVIEW_BALANCES[s.ticker]).map((s) => {
     const bal = PREVIEW_BALANCES[s.ticker]
     return {
-      kind: 'bstock',
+      kind: 'stock',
       address: s.address as Address,
       symbol: s.ticker,
       name: s.company,
@@ -100,6 +107,8 @@ export default function Stake() {
   const [raw, setRaw] = useState('')
   const [days, setDays] = useState(30)
   const [pools, setPools] = useState<Pool[]>([])
+  /** Null while unknown or unconfigured; `false` is an explicit "closed", which the form obeys. */
+  const [stakingOpen, setStakingOpen] = useState<boolean | null>(null)
   const [stakeState, setStakeState] = useState<StakeState>({ kind: 'idle' })
 
   const load = useCallback(async () => {
@@ -110,22 +119,22 @@ export default function Stake() {
       const [nativeUsd, quotes] = await Promise.all([fetchNativeUsd(), fetchQuotes().catch((): Record<string, Quote> => ({}))])
       const listed = await buildRegistry(nativeUsd, quotes)
 
-      const bstocks = STOCKS.filter((s) => s.address)
+      const stockHoldings = STOCKS.filter((s) => s.address)
       // One balance sweep across both sets, so it is a single batched round trip. Skipped entirely
       // when previewing without a wallet, since there is no address to read.
       const balances = address
         ? await readBalances(address as Address, [
-            ...bstocks.map((s) => s.address as Address),
+            ...stockHoldings.map((s) => s.address as Address),
             ...listed.map((t) => t.address),
           ])
         : {}
       const held = (addr: string) => balances[addr.toLowerCase()] ?? 0n
 
       const found: Holding[] = [
-        ...bstocks
+        ...stockHoldings
           .filter((s) => held(s.address!) > 0n)
           .map((s) => ({
-            kind: 'bstock' as const,
+            kind: 'stock' as const,
             address: s.address as Address,
             symbol: s.ticker,
             name: s.company,
@@ -171,6 +180,7 @@ export default function Stake() {
 
   useEffect(() => {
     void readPools().then(setPools)
+    void readStakingOpen().then(setStakingOpen)
   }, [])
 
   const busy =
@@ -191,6 +201,11 @@ export default function Stake() {
       return
     }
 
+    // Tracked so the failure message can tell the truth. An approval that has already confirmed is
+    // a signed transaction that cost gas, and telling somebody nothing was signed after they watched
+    // their wallet do it reads as the site lying about their money.
+    let approvedOnChain = false
+
     try {
       const value = parseUnits(raw.replace(/,/g, '').trim(), token.decimals)
 
@@ -199,7 +214,10 @@ export default function Stake() {
         { token: token.address, owner: address as Address, amount: value },
         provider,
       )
-      if (approval) await publicClient.waitForTransactionReceipt({ hash: approval })
+      if (approval) {
+        await publicClient.waitForTransactionReceipt({ hash: approval })
+        approvedOnChain = true
+      }
 
       setStakeState({ kind: 'signing' })
       const hash = await sendStake(
@@ -216,11 +234,20 @@ export default function Stake() {
     } catch (err) {
       // A wallet rejection is the common case and is not an error worth alarming anybody about.
       const message = err instanceof Error ? err.message : String(err)
+      const cancelled = /reject|denied|User denied/i.test(message)
       setStakeState({
         kind: 'error',
-        message: /reject|denied|User denied/i.test(message)
-          ? 'That was cancelled in your wallet, so nothing was signed.'
-          : 'Nothing was signed and nothing left your wallet. Try again in a moment.',
+        message: /BelowMinimum/.test(message)
+          ? `That is under this pool's minimum. Stake at least ${fmtAmount(minStakeFloat)} ${token.symbol}.`
+          : /StakingClosed/.test(message)
+            ? 'Staking is closed right now, so nothing was staked.'
+            : cancelled
+              ? approvedOnChain
+                ? 'The stake was cancelled in your wallet. Your approval went through, so nothing left your wallet and you can try again without approving twice.'
+                : 'That was cancelled in your wallet, so nothing was signed.'
+              : approvedOnChain
+                ? 'The stake did not go through. Your approval confirmed, but no tokens left your wallet — try again in a moment.'
+                : 'Nothing was signed and nothing left your wallet. Try again in a moment.',
       })
     }
   }
@@ -235,7 +262,20 @@ export default function Stake() {
   const overBalance = token ? amt > token.balanceFloat : false
   const valueUsd = token?.priceUsd != null ? amt * token.priceUsd : null
 
-  const bstocks = holdings?.filter((h) => h.kind === 'bstock') ?? []
+  const pool = token ? poolFor(pools, token.address) : null
+
+  /**
+   * The pool's floor, in the asset's own units.
+   *
+   * ⚠⚠ Checked here because the contract checks it too: `stake` reverts `BelowMinimum` under it. The
+   * floor is a whole unit — one NVDA, one SPY — so entering a fraction is an ordinary thing to do,
+   * and without this the page takes an approval, spends the gas, and only then fails the stake it
+   * was for.
+   */
+  const minStakeFloat = pool && token && pool.minStake > 0n ? Number(formatUnits(pool.minStake, token.decimals)) : 0
+  const belowMin = amt > 0 && minStakeFloat > 0 && amt < minStakeFloat
+
+  const stockHoldings = holdings?.filter((h) => h.kind === 'stock') ?? []
   const tokens = holdings?.filter((h) => h.kind === 'token') ?? []
 
   // Preview deliberately skips both gates: the whole point is to see the page without a wallet.
@@ -310,11 +350,11 @@ export default function Stake() {
     <Shell>
       <div className="card">
         <div className="field">
-          {bstocks.length > 0 && (
+          {stockHoldings.length > 0 && (
             <>
               <div className="holding-group">Stocks</div>
               <div className="holding-list">
-                {bstocks.map((h) => (
+                {stockHoldings.map((h) => (
                   <HoldingRow key={h.address} h={h} on={token?.address === h.address} onPick={pick} />
                 ))}
               </div>
@@ -323,7 +363,7 @@ export default function Stake() {
 
           {tokens.length > 0 && (
             <>
-              <div className="holding-group" style={{ marginTop: bstocks.length ? 18 : 0 }}>
+              <div className="holding-group" style={{ marginTop: stockHoldings.length ? 18 : 0 }}>
                 {BRAND.name} tokens
               </div>
               <div className="holding-list">
@@ -354,12 +394,23 @@ export default function Stake() {
                   }}
                   placeholder="0"
                 />
-                <button className="max-btn" onClick={() => setRaw(String(token.balanceFloat))}>
+                {/*
+                  ⚠ Formatted from the balance in base units, NOT from `balanceFloat`. That float is
+                  a double, so an 18-decimal balance does not survive it: usually it rounds down and
+                  MAX quietly leaves dust unstaked, and sometimes it rounds UP — a balance of
+                  0.999999999999999999 becomes exactly 1, which is more than the wallet holds, so the
+                  transfer reverts. `formatUnits` is exact and `parseUnits` puts it back unchanged.
+                */}
+                <button className="max-btn" onClick={() => setRaw(formatUnits(token.balance, token.decimals))}>
                   MAX
                 </button>
               </div>
               {overBalance ? (
                 <p className="field-error">That is more than your {token.symbol} balance.</p>
+              ) : belowMin ? (
+                <p className="field-error">
+                  The smallest stake this pool takes is {fmtAmount(minStakeFloat)} {token.symbol}.
+                </p>
               ) : (
                 valueUsd !== null && amt > 0 && (
                   <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
@@ -405,7 +456,7 @@ export default function Stake() {
               <div className="summary-row">
                 <span className="k">You earn</span>
                 <span className="v" style={{ fontFamily: 'var(--font)' }}>
-                  {token.kind === 'bstock' ? (
+                  {token.kind === 'stock' ? (
                     'Stocks'
                   ) : token.reward ? (
                     <StockBadge ticker={token.reward} to={false} />
@@ -417,7 +468,7 @@ export default function Stake() {
               <div className="summary-row">
                 <span className="k">Paid from</span>
                 <span className="v" style={{ fontFamily: 'var(--font)' }}>
-                  {token.kind === 'bstock' ? `${BRAND.name} token fees` : `${token.symbol} trading fees`}
+                  {token.kind === 'stock' ? `${BRAND.name} token fees` : `${token.symbol} trading fees`}
                 </span>
               </div>
               <div className="summary-row">
@@ -428,13 +479,21 @@ export default function Stake() {
               </div>
             </div>
 
+            {stakingOpen === false && (
+              <div style={{ marginBottom: 16 }}>
+                <Notice>Staking is closed right now, so this pool is not taking deposits.</Notice>
+              </div>
+            )}
+
             <button
               className="btn btn-primary btn-lg btn-block"
-              disabled={!amt || overBalance || busy}
+              disabled={!amt || overBalance || belowMin || stakingOpen === false || busy}
               onClick={() => void submitStake()}
             >
               <Lock size={17} />
-              {stakeState.kind === 'approving'
+              {stakingOpen === false
+                ? 'Staking is closed'
+                : stakeState.kind === 'approving'
                 ? `Approve ${token.symbol} in your wallet…`
                 : stakeState.kind === 'signing'
                   ? 'Confirm in your wallet…'

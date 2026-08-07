@@ -23,7 +23,7 @@ type WalletState = {
   connected: boolean
   chainId: number | null
   /** Native ETH balance, refreshed on connect and on account/chain change. */
-  balanceBnb: number
+  balanceNative: number
   /** The connected wallet's name and icon, for the header. */
   wallet: { name: string; icon: string } | null
   provider: Eip1193Provider | null
@@ -48,7 +48,7 @@ const Ctx = createContext<WalletState | null>(null)
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null)
   const [chainId, setChainId] = useState<number | null>(null)
-  const [balanceBnb, setBalanceBnb] = useState(0)
+  const [balanceNative, setBalanceNative] = useState(0)
   const [wallet, setWallet] = useState<{ name: string; icon: string } | null>(null)
   const [provider, setProvider] = useState<Eip1193Provider | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -60,9 +60,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const refreshBalance = useCallback(async (p: Eip1193Provider, addr: string) => {
     try {
       const wei = (await p.request({ method: 'eth_getBalance', params: [addr, 'latest'] })) as string
-      setBalanceBnb(Number(BigInt(wei)) / 1e18)
+      setBalanceNative(Number(BigInt(wei)) / 1e18)
     } catch {
-      setBalanceBnb(0)
+      setBalanceNative(0)
     }
   }, [])
 
@@ -112,7 +112,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setProvider(null)
     setWallet(null)
     setChainId(null)
-    setBalanceBnb(0)
+    setBalanceNative(0)
   }, [])
 
   const switchChain = useCallback(async () => {
@@ -180,7 +180,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       address,
       connected: address !== null,
       chainId,
-      balanceBnb,
+      balanceNative,
       wallet,
       provider,
       connecting,
@@ -195,7 +195,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       disconnect,
       switchChain,
     }),
-    [address, chainId, balanceBnb, wallet, provider, connecting, error, pickerOpen, connectTo, disconnect, switchChain],
+    [address, chainId, balanceNative, wallet, provider, connecting, error, pickerOpen, connectTo, disconnect, switchChain],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
