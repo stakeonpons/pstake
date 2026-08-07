@@ -385,7 +385,29 @@ export async function buildRegistry(
   // One HTTP call for the whole page. Chain stays the source of truth for price, liquidity and
   // market cap; this only supplies what current pool state cannot answer.
   const extras = await fetchMarketExtras(rows.map((r) => r.address))
-  return rows.map((r) => ({ ...r, ...(extras[r.address.toLowerCase()] ?? {}) }))
+  return rows.map((r) => {
+    const merged = { ...r, ...(extras[r.address.toLowerCase()] ?? {}) }
+
+    /*
+      ⚠⚠ Recompute the market cap AFTER the merge, or it stays null for every token whose price the
+      chain read could not answer.
+
+      `withUsd` derives `mcapUsd` from the on-chain pool price, which works for the pools this app
+      reads directly. A **V1** token trades in a Uniswap V3 pool that read does not cover, so its
+      price arrives only in this DexScreener pass — and the card showed a live 24h change beside a
+      dashed market cap, which reads as a broken card rather than a missing source.
+
+      ⚠ Still null when there is no price: a market cap invented without one would be a confident
+      wrong number, and a dash is the honest answer.
+    */
+    if (merged.mcapUsd === null && merged.priceUsd !== null) {
+      const supply = Number(merged.totalSupply) / 10 ** merged.decimals
+      if (Number.isFinite(supply) && supply > 0) {
+        return { ...merged, mcapUsd: merged.priceUsd * supply }
+      }
+    }
+    return merged
+  })
 }
 
 /**
