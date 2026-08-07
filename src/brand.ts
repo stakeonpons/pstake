@@ -5,12 +5,13 @@ export const BRAND = {
   /** The name in prose: sentences, the tab title, the footer, link previews. */
   name: 'Stake',
   /**
-   * The wordmark, lowercase, for the logo lockup in the header and footer only.
+   * The wordmark for the logo lockup in the header and footer only.
    *
-   * ⚠ Deliberately different from `name`. A lowercase mark is the visual identity; a lowercase
-   * word inside a sentence ("© 2026 stake.") reads as a typo. Anything in prose uses `name`.
+   * ⚠ Kept as a separate field from `name` even though the two now match: the lockup and prose are
+   * styled independently, so changing one must not silently change the other.
+   * ✏️ Capitalised 7 Aug at the operator's request, reversing the earlier lowercase mark.
    */
-  wordmark: 'stake',
+  wordmark: 'Stake',
   tagline: 'Stake your bag. Earn real stocks.',
   domain: 'stakeonpons.xyz',
   twitter: 'https://x.com/stakeonpons',

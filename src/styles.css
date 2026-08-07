@@ -3027,26 +3027,6 @@ table tbody tr:hover {
   font-size: 13.5px;
 }
 
-/* ⚠ Informational, NOT a failure. Pons's gate being shut is the normal state of the world and the
-   creator did nothing wrong, so it must not borrow the red that a rejected transaction uses. */
-.form-notice {
-  padding: 13px 15px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--bg-2);
-  color: var(--text-2);
-  font-size: 13.5px;
-  line-height: 1.65;
-}
-.form-notice code {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--text);
-  background: var(--surface-2);
-  border-radius: 5px;
-  padding: 1px 5px;
-}
-
 .form-error {
   padding: 13px 15px;
   border-radius: 12px;

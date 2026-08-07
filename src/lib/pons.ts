@@ -279,6 +279,143 @@ export async function sendLaunch(
   return hash as Hex
 }
 
+/* ------------------------------- the developer buy ------------------------------- */
+
+/**
+ * The creator's own first buy, as a SEPARATE pair of transactions after the launch.
+ *
+ * ⚠⚠ **Pons V2 cannot do this at launch time, and it is not an oversight to work around.** The
+ * verified `PonsV2LaunchFactory` ABI was read directly: `launchToken`'s params struct is
+ * name/symbol/logo/description/socials/creatorFeeRecipient/creatorTaxBps/buybackEnabled/
+ * expectedEconomics — **no buy amount** — and `launchToken` is the factory's ONLY payable function,
+ * carrying the launch fee alone. Corroborated against reality: all **16** real V2 launches report
+ * `initialBuyWei: 0`, while V1 launches (which pair against native) carry real amounts.
+ *
+ * So the buy happens on the bonding curve that `launchToken` returns:
+ *
+ *   `buy(uint256 quoteIn, uint256 minTokensOut, address recipient) payable returns (uint256)`
+ *
+ * ⚠⚠ **`isNativeQuote()` is FALSE for every stock-paired curve** (read live off a real one). The
+ * quote is the tokenized stock, an ERC-20, so the buy needs an **approve first** and `msg.value`
+ * must be **zero**. Sending value here would be a plain loss. ⚠ The accessor is `pairToken()`, not
+ * `quoteToken()` — the latter reverts.
+ *
+ * ⚠⚠ **`quoteIn` is in the PAIR TOKEN's own decimals.** The seven equities are 18 and **USDG is 6**,
+ * so a hard-coded 1e18 would ask for a trillion USDG. Callers must pass an amount already parsed
+ * with that token's `decimals()`.
+ */
+export const CURVE_ABI = parseAbi([
+  'function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) payable returns (uint256 tokensOut)',
+  'function isNativeQuote() view returns (bool)',
+  'function pairToken() view returns (address)',
+  'function token() view returns (address)',
+])
+
+export const ERC20_APPROVE_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+])
+
+/**
+ * Slippage floor applied to the simulated output.
+ *
+ * ⭐ The expected output is not re-derived from the curve's reserves — that means reimplementing
+ * Pons's bonding-curve maths and being wrong with the creator's money. It is SIMULATED against the
+ * deployed curve instead (`eth_call` on `buy`, which returns `tokensOut`), and this floor is applied
+ * to the answer the chain itself gave.
+ *
+ * ⛔ Never send `minTokensOut: 0`. The launch and the buy are separate transactions, so anyone can
+ * act in between; a zero floor accepts any output at all, including a sandwiched one.
+ */
+export const DEV_BUY_SLIPPAGE_BPS = 200n
+
+export function applySlippage(expected: bigint): bigint {
+  return (expected * (10_000n - DEV_BUY_SLIPPAGE_BPS)) / 10_000n
+}
+
+/** Reads the curve address for a token straight from the factory. */
+export async function readCurveFor(token: Address): Promise<Address | null> {
+  try {
+    const info = (await publicClient.readContract({
+      address: PONS.factory as Address,
+      abi: FACTORY_ABI,
+      functionName: 'getLaunchedToken',
+      args: [token],
+    })) as { curve: Address; exists: boolean }
+    return info?.exists ? info.curve : null
+  } catch {
+    return null
+  }
+}
+
+type Eip1193 = { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> }
+
+/** Approves the curve to pull `amount` of the pair token. Returns the transaction hash. */
+export async function sendApprove(
+  provider: Eip1193,
+  args: { owner: Address; pairToken: Address; curve: Address; amount: bigint },
+): Promise<Hex> {
+  const data = encodeFunctionData({
+    abi: ERC20_APPROVE_ABI,
+    functionName: 'approve',
+    args: [args.curve, args.amount],
+  })
+  return (await provider.request({
+    method: 'eth_sendTransaction',
+    params: [{ from: args.owner, to: args.pairToken, data }],
+  })) as Hex
+}
+
+/**
+ * Buys on the curve with the pair token.
+ *
+ * ⚠ No `value` field: the quote is an ERC-20 and the curve pulls it through the allowance. Sending
+ * native here would strand it.
+ */
+export async function sendDevBuy(
+  provider: Eip1193,
+  args: { owner: Address; curve: Address; quoteIn: bigint; minTokensOut: bigint },
+): Promise<Hex> {
+  const data = encodeFunctionData({
+    abi: CURVE_ABI,
+    functionName: 'buy',
+    args: [args.quoteIn, args.minTokensOut, args.owner],
+  })
+  return (await provider.request({
+    method: 'eth_sendTransaction',
+    params: [{ from: args.owner, to: args.curve, data }],
+  })) as Hex
+}
+
+/**
+ * Asks the deployed curve what a given spend would return, so the slippage floor is anchored to the
+ * chain rather than to maths reimplemented here.
+ *
+ * ⚠ Must be called with the allowance already in place — the curve pulls the quote during the call,
+ * so simulating before approving reverts for a reason that has nothing to do with the price.
+ * Returns null when it cannot be simulated; the caller must then refuse rather than guess a floor.
+ */
+export async function previewDevBuy(args: {
+  owner: Address
+  curve: Address
+  quoteIn: bigint
+}): Promise<bigint | null> {
+  try {
+    const { result } = await publicClient.simulateContract({
+      address: args.curve,
+      abi: CURVE_ABI,
+      functionName: 'buy',
+      args: [args.quoteIn, 0n, args.owner],
+      account: args.owner,
+    })
+    return result as bigint
+  } catch {
+    return null
+  }
+}
+
 /** Client-side validation shared by the form and the submit handler. */
 export function validateLaunch(p: {
   name: string
